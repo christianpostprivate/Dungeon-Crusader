@@ -1,9 +1,36 @@
 import pygame as pg
+import pickle
+from os import path
+import traceback
 
 import functions as fn
 import settings as st
 
 vec = pg.math.Vector2
+
+class saveObject():
+    def __init__(self):
+        self.data = {}
+        self.filename = 'savefile.dat'
+        directory = path.dirname(__file__)
+        self.filename = path.join(directory, self.filename)
+
+
+    def save(self):
+        with open(self.filename, 'wb') as file:
+            pickle.dump(self, file)
+            
+     
+    def load(self):
+        try:
+            with open(self.filename, 'rb') as file:
+                self.data = pickle.load(file).data
+                print(self.data)
+        except Exception:
+            traceback.print_exc()
+            return      
+            
+
 
 class Player(pg.sprite.Sprite):
     def __init__(self, game,  pos):
@@ -27,12 +54,45 @@ class Player(pg.sprite.Sprite):
         self.hit_rect.center = self.rect.center
         self.vel = vec(0, 0)      
         self.dir = vec(0, 0)
+        
         self.state = 'IDLE'
+        self.max_hp = st.PLAYER_HP_START
+        self.hp = self.max_hp
+        
+        self.itemA = None
+        self.itemB = None
                
         self.last_update = 0
         self.current_frame = 0
         self.vel = st.PLAYER_SPEED
         
+        # testing a save function
+        self.saveGame = self.game.saveGame
+        
+        
+    def saveSelf(self):
+        self.saveGame.data = {**self.saveGame.data,
+                              'pos': (self.pos.x, self.pos.y),
+                              'state': self.state,
+                              'hp': self.hp,
+                              'itemA': self.itemA,
+                              'itemB': self.itemB
+                              }
+               
+        self.saveGame.save()     
+        
+        
+    def loadSelf(self):
+        try:
+            self.saveGame.load()
+            
+            self.pos.x, self.pos.y = self.saveGame.data['pos']
+            self.state = self.saveGame.data['state']
+            self.hp = self.saveGame.data['hp']
+            self.itemA = self.saveGame.data['itemA']
+            self.itemB = self.saveGame.data['itemB']
+        except:
+            pass
         
         
     def get_keys(self):
