@@ -23,8 +23,8 @@ PLAYER_SPEED = 1 * GLOBAL_SCALE
 PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 
 # player hp 
-PLAYER_HP = 3.0
-
+PLAYER_HP_START = 3.0
+PLAYER_HP_MAX = 14.0
 
 
 

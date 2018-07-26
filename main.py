@@ -1,7 +1,7 @@
 import pygame as pg
 import traceback
 #from os import path
-from random import choice
+#from random import seed, random
 
 import settings as st
 import sprites as spr
@@ -31,8 +31,10 @@ class Game():
         self.key_down = None
         self.state = 'GAME'
         
+        self.saveGame = spr.saveObject()
+        
         self.load_data()
-
+    
 
     def load_data(self):      
         self.room_images = fn.img_list_from_strip('rooms_strip_4.png', 
@@ -58,11 +60,35 @@ class Game():
         self.tileset_names = ['tileset.png', 'tileset_sand.png', 
                               'tileset_green.png','tileset_red.png']
         
-        self.tileset_list = [fn.tileImageScale(tileset, 16, 16,
-                                scale=1) for tileset in self.tileset_names]
+        #self.tileset_list = [fn.tileImageScale(tileset, 16, 16,
+                                #scale=1) for tileset in self.tileset_names]
+        
+        # THIS IS NEW!
+        self.tileset_dict = {key: fn.tileImageScale(key, 16, 16,
+                                scale=1) for key in self.tileset_names}
         
         
-    def new(self):
+    def loadSavefile(self):
+        self.saveGame.load()
+        
+        self.player.loadSelf()
+        self.dungeon.loadSelf()
+               
+       
+    def writeSavefile(self):
+
+        # TO DO: EACH DUNGEON SHOULD HAVE ITS OWN TILESET
+        # self.tileset should be only the string
+        # make a save object for the dungeon
+        self.saveGame.data['tileset'] = self.dungeon.tileset
+        
+        self.player.saveSelf()
+        self.dungeon.saveSelf()
+        
+        print('GAME SAVED')
+        
+        
+    def new(self):       
         # start a new game
         # initialise sprite groups
         self.all_sprites = pg.sprite.Group()
@@ -72,13 +98,14 @@ class Game():
         # instantiate dungeon
         self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
         
-        # pick a random tileset from all available tilesets
-        self.tileset = choice(self.tileset_list)
         # create a background image from the tileset for the current room
-        self.background = fn.tileRoom(self, self.tileset, self.dungeon.room_index)
+        self.background = fn.tileRoom(self, 
+                                      self.tileset_dict[self.dungeon.tileset], 
+                                      self.dungeon.room_index)
         
         # spawn the player in the middle of the screen/room
         self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
+               
         # spawn the wall objects (invisible)
         self.walls = fn.transitRoom(self, self.walls, self.dungeon)
         
@@ -86,6 +113,34 @@ class Game():
         
         self.run()
 
+         
+    def loaded(self):  
+        # initialise sprite groups
+        self.all_sprites = pg.sprite.Group()
+        self.walls = pg.sprite.Group()
+        self.gui = pg.sprite.Group()
+        
+        self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
+          
+        self.dungeon.tileset = self.saveGame.data['tileset']
+    
+        self.background = fn.tileRoom(self, 
+                                      self.tileset_dict[self.dungeon.tileset], 
+                                      self.dungeon.room_index)
+        
+        # spawn the player in the middle of the screen/room
+        self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
+        
+        # spawn the wall objects (invisible)
+        self.walls = fn.transitRoom(self, self.walls, self.dungeon)
+        
+        self.inventory = spr.Inventory(self)
+        
+        # load settings
+        self.loadSavefile()
+        
+        self.run()
+      
 
     def run(self):
         # game loop
@@ -99,11 +154,12 @@ class Game():
             self.update()
             self.draw()
 
+        #self.writeSavefile()
 
     def update(self):
         
         #index = self.dungeon.room_index
-        pg.display.set_caption(self.state)
+        pg.display.set_caption(str(self.dungeon.room_index))
         #pg.display.set_caption(st.TITLE)
         if self.slowmotion:
             pg.display.set_caption('slowmotion')
@@ -134,12 +190,23 @@ class Game():
                 if self.playing:
                     self.playing = False
                 self.running = False
+                
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_r:
                     self.screen.fill((0, 0, 0))
                     self.new()
+                    
+                if event.key == pg.K_F9:
+                    # load save game
+                    self.loaded()
+                    
+                if event.key == pg.K_F6:
+                    # save game
+                    self.writeSavefile()
+                    
                 if event.key == pg.K_h:
                     self.draw_debug = not self.draw_debug
+                    
                 if event.key == pg.K_s:
                     self.slowmotion = not self.slowmotion
 
@@ -171,7 +238,8 @@ class Game():
         # store the old background image temporarily
         old_background = self.background
         # build the new room
-        self.background = fn.tileRoom(self, self.tileset, 
+        self.background = fn.tileRoom(self, 
+                                      self.tileset_dict[self.dungeon.tileset], 
                                       self.dungeon.room_index)
         
         # move the player to the other side of the screen

@@ -1,5 +1,5 @@
 import pygame as pg
-from random import choice, randint
+from random import choice, randint, seed
 from datetime import datetime
 
 import settings as st
@@ -153,13 +153,49 @@ class Dungeon():
         
         self.done = False
         
+        self.saveGame = self.game.saveGame
+        
+        self.tileset = choice(self.game.tileset_names)
+        
+        self.seed = randint(100000, 999999)
+        #self.seed = 123456
+        
         self.build()
+        
         dt = datetime.now() - start
         ms = dt.seconds * 1000 + dt.microseconds / 1000.0
         print('Dungeon built in {} ms'.format(round(ms, 1)))
+
+    
+    def saveSelf(self):       
+        self.saveGame.data = {**self.saveGame.data,
+                              'size': (self.size.x, self.size.y),
+                              'room_index': self.room_index,
+                              'seed': self.seed
+                              }
+       
+        self.saveGame.save()
+       
         
+    def loadSelf(self):
+        try:
+            self.saveGame.load()
+            
+            self.size.x, self.size.y = self.saveGame.data['size']
+            self.room_index = self.saveGame.data['room_index']
+            self.seed = self.saveGame.data['seed']
+            
+            self.build()
+
+        except:
+            pass
+
         
-    def build(self):  
+    def build(self):   
+        # set seed for randomisation
+        seed(a=self.seed)
+        print(self.seed)
+        
         while self.done == False:
             self.done = True
             for i in range(1, len(self.rooms) - 1):
@@ -236,11 +272,10 @@ class Dungeon():
                                 self.rooms[i + 1][j] = Room(self.game, rng)
                                 
                             self.done = False
+                            
+            self.closeDoors()
+            self.floodFill()
 
-        self.closeDoors()
-        self.floodFill()
-
-    
     
     def closeDoors(self):
         for i in range(len(self.rooms)):
