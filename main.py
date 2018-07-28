@@ -23,39 +23,45 @@ class Game():
         
         self.clock = pg.time.Clock()
         self.running = True
+        self.loaded = False
         
         # booleans for drawing the hit rects and other debug stuff
         self.draw_debug = False
         self.slowmotion = False
+        self.caption = ''
         
         self.key_down = None
         self.state = 'GAME'
         
         self.saveGame = spr.saveObject()
+        self.saveGame.load()
         
-        self.load_data()
+        self.loadData()
     
 
-    def load_data(self):      
-        self.room_images = fn.img_list_from_strip('rooms_strip_4.png', 
-                                                  16, 16, 0, 18)
+    def loadData(self):      
+        self.room_images = fn.img_list_from_strip('minimap_strip_7x5.png', 
+                                                  7, 5, 0, 20, False)
+        
         self.room_image_dict = {
-                'NSWE': self.room_images[0],
-                'NS': self.room_images[1],
-                'WE': self.room_images[2],
-                'N': self.room_images[3],
-                'S': self.room_images[4],
-                'W': self.room_images[5],
-                'E': self.room_images[6],
-                'SW': self.room_images[7],
-                'SE': self.room_images[8],
-                'NE': self.room_images[9],
-                'NW': self.room_images[10],
-                'NWE': self.room_images[13],
-                'SWE': self.room_images[14],
-                'NSE': self.room_images[15],
-                'NSW': self.room_images[16]
-                }
+                                'empty': self.room_images[0],
+                                'NSWE': self.room_images[1],
+                                'N': self.room_images[3],
+                                'E': self.room_images[4],
+                                'S': self.room_images[5],
+                                'W': self.room_images[6],
+                                'NE': self.room_images[7],
+                                'NS': self.room_images[8],
+                                'NW': self.room_images[9],
+                                'SE': self.room_images[10],
+                                'WE': self.room_images[11],
+                                'SW': self.room_images[12],
+                                'NWE': self.room_images[13],
+                                'NES': self.room_images[14],
+                                'SWE': self.room_images[15],
+                                'NWS': self.room_images[16]
+                                }
+        
         
         self.tileset_names = ['tileset.png', 'tileset_sand.png', 
                               'tileset_green.png','tileset_red.png']
@@ -68,15 +74,14 @@ class Game():
                                 scale=1) for key in self.tileset_names}
         
         
-    def loadSavefile(self):
-        self.saveGame.load()
-        
+    def loadSavefile(self):       
         self.player.loadSelf()
         self.dungeon.loadSelf()
                
        
     def writeSavefile(self):
 
+        pg.display.set_caption('  SAVING...')
         # TO DO: EACH DUNGEON SHOULD HAVE ITS OWN TILESET
         # self.tileset should be only the string
         # make a save object for the dungeon
@@ -86,6 +91,7 @@ class Game():
         self.dungeon.saveSelf()
         
         print('GAME SAVED')
+        pg.display.set_caption(self.caption)
         
         
     def new(self):       
@@ -97,50 +103,30 @@ class Game():
         
         # instantiate dungeon
         self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
+        if self.loaded:
+            self.dungeon.tileset = self.saveGame.data['tileset']
+        else:  
+            self.dungeon.create(rng_seed=None)
+        
+        # spawn the player in the middle of the screen/room
+        self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
+        
+        self.inventory = spr.Inventory(self)
+        
+        # load settings
+        if self.loaded:
+            self.loadSavefile()
+            
+        # spawn the wall objects (invisible)
+        self.walls = fn.transitRoom(self, self.walls, self.dungeon)
         
         # create a background image from the tileset for the current room
         self.background = fn.tileRoom(self, 
                                       self.tileset_dict[self.dungeon.tileset], 
                                       self.dungeon.room_index)
         
-        # spawn the player in the middle of the screen/room
-        self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
-               
-        # spawn the wall objects (invisible)
-        self.walls = fn.transitRoom(self, self.walls, self.dungeon)
-        
-        self.inventory = spr.Inventory(self)
-        
         self.run()
-
-         
-    def loaded(self):  
-        # initialise sprite groups
-        self.all_sprites = pg.sprite.Group()
-        self.walls = pg.sprite.Group()
-        self.gui = pg.sprite.Group()
         
-        self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
-          
-        self.dungeon.tileset = self.saveGame.data['tileset']
-    
-        self.background = fn.tileRoom(self, 
-                                      self.tileset_dict[self.dungeon.tileset], 
-                                      self.dungeon.room_index)
-        
-        # spawn the player in the middle of the screen/room
-        self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
-        
-        # spawn the wall objects (invisible)
-        self.walls = fn.transitRoom(self, self.walls, self.dungeon)
-        
-        self.inventory = spr.Inventory(self)
-        
-        # load settings
-        self.loadSavefile()
-        
-        self.run()
-      
 
     def run(self):
         # game loop
@@ -154,13 +140,11 @@ class Game():
             self.update()
             self.draw()
 
-        #self.writeSavefile()
 
     def update(self):
         
-        #index = self.dungeon.room_index
-        pg.display.set_caption(str(self.dungeon.room_index))
-        #pg.display.set_caption(st.TITLE)
+        self.caption = st.TITLE
+        pg.display.set_caption(self.caption)
         if self.slowmotion:
             pg.display.set_caption('slowmotion')
         
@@ -193,12 +177,14 @@ class Game():
                 
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_r:
-                    self.screen.fill((0, 0, 0))
+                    #self.screen.fill((0, 0, 0))
+                    self.loaded = False
                     self.new()
                     
                 if event.key == pg.K_F9:
                     # load save game
-                    self.loaded()
+                    self.loaded = True
+                    self.playing = False
                     
                 if event.key == pg.K_F6:
                     # save game

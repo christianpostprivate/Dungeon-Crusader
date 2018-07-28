@@ -46,21 +46,21 @@ def screenWrap(player, dungeon):
     index = list(dungeon.room_index)
     direction = ''
     new_pos = vec(player.hit_rect.center)
-    if player.rect.left < 0:
+    if player.rect.left < st.TILESIZE:
         direction = 'LEFT'
-        new_pos.x  = st.WIDTH - player.rect.width
+        new_pos.x  = st.WIDTH - player.rect.width - st.TILESIZE
         index[1] -= 1
-    if player.rect.right > st.WIDTH:
+    if player.rect.right > st.WIDTH - st.TILESIZE:
         direction = 'RIGHT'
-        new_pos.x = player.rect.width
+        new_pos.x = player.rect.width + st.TILESIZE
         index[1] += 1
-    if player.rect.top < st.GUI_HEIGHT:
+    if player.rect.top < st.GUI_HEIGHT + st.TILESIZE:
         direction = 'UP'
-        new_pos.y = st.HEIGHT - player.rect.height
+        new_pos.y = st.HEIGHT - player.rect.height - st.TILESIZE
         index[0] -= 1
-    if player.rect.bottom > st.HEIGHT:
+    if player.rect.bottom > st.HEIGHT - st.TILESIZE:
         direction = 'DOWN'
-        new_pos.y = player.rect.height + st.GUI_HEIGHT
+        new_pos.y = player.rect.height + st.GUI_HEIGHT + st.TILESIZE
         index[0] += 1
     try:
         return direction, index, new_pos
@@ -106,7 +106,7 @@ def loadImage(filename, scale=1):
         return
 
 
-def img_list_from_strip(filename, width, height, startpos, number):
+def img_list_from_strip(filename, width, height, startpos, number, transform=True):
     directory = path.dirname(__file__)
     img_folder = path.join(directory, 'images')
     file = path.join(img_folder, filename)
@@ -118,8 +118,11 @@ def img_list_from_strip(filename, width, height, startpos, number):
     img_set = []
     for i in range(startpos, (startpos + number)):
         rect = ((i * width, 0), (width, height))
-        subimg = pg.transform.scale(img.subsurface(rect), 
-                                    (st.TILESIZE, st.TILESIZE))
+        if transform:
+            subimg = pg.transform.scale(img.subsurface(rect), 
+                                        (st.TILESIZE, st.TILESIZE))
+        else:
+            subimg = img.subsurface(rect)
         img_set.append(subimg)
     return img_set
 
