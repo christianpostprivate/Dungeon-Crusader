@@ -8,6 +8,11 @@ import settings as st
 
 vec = pg.math.Vector2
 
+UP = (0, -1)
+DOWN = (0, 1)
+LEFT = (-1, 0)
+RIGHT = (1, 0)
+
 class saveObject():
     def __init__(self):
         self.data = {}
@@ -19,17 +24,17 @@ class saveObject():
     def save(self):
         with open(self.filename, 'wb') as file:
             pickle.dump(self, file)
-            
-     
+
+
     def load(self):
         try:
             with open(self.filename, 'rb') as file:
                 self.data = pickle.load(file).data
-                print(self.data)
+                #print(self.data)
         except Exception:
             traceback.print_exc()
-            return      
-            
+            return
+
 
 
 class Player(pg.sprite.Sprite):
@@ -37,39 +42,56 @@ class Player(pg.sprite.Sprite):
         self.groups = game.all_sprites
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        
+
         # images for animation
         self.image_strip = fn.img_list_from_strip('knight_strip.png', 16, 16,
-                                                    0, 8)
+                                                    0, 10)
         self.walk_frames_l = [self.image_strip[6], self.image_strip[7]]
         self.walk_frames_r = [self.image_strip[2], self.image_strip[3]]
         self.walk_frames_u = [self.image_strip[4], self.image_strip[5]]
         self.walk_frames_d = [self.image_strip[0], self.image_strip[1]]
+        self.idle_frames_l = [self.image_strip[6]]
+        self.idle_frames_r = [self.image_strip[2]]
+        self.idle_frames_u = [self.image_strip[9]]
+        self.idle_frames_d = [self.image_strip[8]]
+
+        self.attack_strip = fn.img_list_from_strip('knight_attack.png', 16, 16,
+                                                    0, 4)
+
+        self.attack_frames_l = [self.attack_strip[3]]
+        self.attack_frames_r = [self.attack_strip[2]]
+        self.attack_frames_u = [self.attack_strip[1]]
+        self.attack_frames_d = [self.attack_strip[0]]
+
         self.image = self.walk_frames_d[0]
-        
+
         self.rect = self.image.get_rect()
         self.pos = vec(pos)
         self.rect.center = pos
         self.hit_rect = st.PLAYER_HIT_RECT
         self.hit_rect.center = self.rect.center
-        self.vel = vec(0, 0)      
-        self.dir = vec(0, 0)
-        
+        self.vel = vec(0, 0)
+        self.dir = vec(DOWN)
+        self.lastdir = vec(DOWN)
+
         self.state = 'IDLE'
         self.max_hp = st.PLAYER_HP_START
         self.hp = self.max_hp
-        
+
         self.itemA = None
         self.itemB = None
-               
-        self.last_update = 0
+
+        self.sword = None
+
+        self.anim_update = 0
+        self.attack_update = 0
         self.current_frame = 0
-        self.vel = st.PLAYER_SPEED
         
+
         # testing a save function
         self.saveGame = self.game.saveGame
-        
-        
+
+
     def saveSelf(self):
         self.saveGame.data = {**self.saveGame.data,
                               'pos': (self.pos.x, self.pos.y),
@@ -78,14 +100,14 @@ class Player(pg.sprite.Sprite):
                               'itemA': self.itemA,
                               'itemB': self.itemB
                               }
-               
-        self.saveGame.save()     
-        
-        
+
+        self.saveGame.save()
+
+
     def loadSelf(self):
         try:
             self.saveGame.load()
-            
+
             self.pos.x, self.pos.y = self.saveGame.data['pos']
             self.state = self.saveGame.data['state']
             self.hp = self.saveGame.data['hp']
@@ -93,52 +115,75 @@ class Player(pg.sprite.Sprite):
             self.itemB = self.saveGame.data['itemB']
         except:
             pass
-        
-        
+
+
     def get_keys(self):
-        if self.state != 'ATTACK':
-            self.vel = vec(0, 0)
-            self.dir = vec(0, 0)
-            
+        if not self.state == 'ATTACK':
+            # acceleration
+            self.acc = vec(1, 1) * st.PLAYER_ACC
+
+            self.friction = 0.1
+
+
             keys = pg.key.get_pressed()
+            # add acceleration to velocity
             if keys[pg.K_LEFT] or keys[pg.K_a]:
-                self.vel.x = -st.PLAYER_SPEED
-                self.dir.x = -1
-            if keys[pg.K_RIGHT] or keys[pg.K_d]:
-                self.vel.x = st.PLAYER_SPEED
-                self.dir.x = 1
-            if keys[pg.K_UP] or keys[pg.K_w]:
-                self.vel.y = -st.PLAYER_SPEED
-                self.dir.y = -1
-            if keys[pg.K_DOWN] or keys[pg.K_s]:
-                self.vel.y = st.PLAYER_SPEED
-                self.dir.y = 1
-            if self.vel.x != 0 and self.vel.y != 0:
-                self.vel.x *= 0.7071
-                self.vel.y *= 0.7071  
+                self.vel.x -= self.acc.x
                 
-            if self.vel.length_squared() != 0:
+                self.dir = vec(LEFT)
+                self.lastdir = vec(LEFT)
+
+            if keys[pg.K_RIGHT] or keys[pg.K_d]:
+                self.vel.x += self.acc.x
+                
+                self.dir = vec(RIGHT)
+                self.lastdir = vec(RIGHT)
+
+            if keys[pg.K_UP] or keys[pg.K_w]:
+                self.vel.y -= self.acc.y
+
+                self.dir = vec(UP)
+                self.lastdir = vec(UP)
+
+            if keys[pg.K_DOWN] or keys[pg.K_s]:
+                self.vel.y += self.acc.y
+
+                self.dir = vec(DOWN)
+                self.lastdir = vec(DOWN)
+
+            # apply friction
+            self.vel *= (1 - self.friction)
+
+            # cap speed at maximum
+            if self.vel.length() > st.PLAYER_MAXSPEED:
+                self.vel.scale_to_length(st.PLAYER_MAXSPEED)
+
+            # stop the player from sliding infinitely
+            if self.vel.length() < 0.1:
+                self.vel = vec(0, 0)
+
+            if self.vel.length() > 0.2:
                 self.state = 'WALKING'
             else:
                 self.state = 'IDLE'
-            
-        if self.game.key_down == pg.K_SPACE:
-            
-            if not self.state == 'ATTACK':
+
+            if self.game.key_down == pg.K_SPACE:
                 self.state = 'ATTACK'
                 self.vel = vec(0, 0)
-                
-        if self.state == 'ATTACK':
-            now = pg.time.get_ticks()
-            if now - self.last_update > 500:
+
+        elif self.state == 'ATTACK':
+            self.attack()
+            self.attack_update += 1
+            if self.attack_update > 20:
+                self.attack_update = 0
                 self.state = 'IDLE'
-                    
-    
+
+
     def update(self, others):
         self.get_keys()
-        
-        self.animate(self.state)
-            
+
+        self.animate()
+
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
         self.pos += self.vel
@@ -146,34 +191,59 @@ class Player(pg.sprite.Sprite):
         fn.collide_with_walls(self, self.game.walls, 'x')
         self.hit_rect.centery = self.pos.y
         fn.collide_with_walls(self, self.game.walls, 'y')
-        
+
         # position the hitrect at the bottom of the image
         self.rect.midbottom = self.hit_rect.midbottom
-        
-        
+
+
     def draw(self):
         self.game.screen.blit(self.image, self.rect.topleft)
-        
 
-    def animate(self, state):
+
+    def animate(self):
         now = pg.time.get_ticks()
 
-        if self.state == 'WALKING':    
-            if now - self.last_update > 200:
-                self.last_update = now
+        if self.state == 'WALKING':
+            if now - self.anim_update > 200:
+                self.anim_update = now
                 self.current_frame = (self.current_frame + 1) % len(
                                       self.walk_frames_l)
-                if self.vel.x > 0:
+                if self.dir == RIGHT:
                     self.image = self.walk_frames_r[self.current_frame]
-                elif self.vel.x < 0:
+                elif self.dir == LEFT:
                     self.image = self.walk_frames_l[self.current_frame]
-                if self.vel.y > 0:
+                if self.dir == DOWN:
                     self.image = self.walk_frames_d[self.current_frame]
-                elif self.vel.y < 0:
+                elif self.dir == UP:
                     self.image = self.walk_frames_u[self.current_frame]
-                    
-
         
+        elif self.state == 'IDLE':
+            if self.lastdir == RIGHT:
+                self.image = self.idle_frames_r[0]
+            elif self.lastdir == LEFT:
+                self.image = self.idle_frames_l[0]
+            if self.lastdir == DOWN:
+                self.image = self.idle_frames_d[0]
+            elif self.lastdir == UP:
+                self.image = self.idle_frames_u[0]
+
+        elif self.state == 'ATTACK':
+            if self.lastdir == RIGHT:
+                self.image = self.attack_frames_r[0]
+            elif self.lastdir == LEFT:
+                self.image = self.attack_frames_l[0]
+            if self.lastdir == DOWN:
+                self.image = self.attack_frames_d[0]
+            elif self.lastdir == UP:
+                self.image = self.attack_frames_u[0]
+
+
+    def attack(self):
+        if not self.game.all_sprites.has(self.sword):
+            self.sword = Sword(self.game, self)
+        
+
+
 class Wall(pg.sprite.Sprite):
     def __init__(self, game, pos, size):
         self.groups = game.walls
@@ -181,38 +251,43 @@ class Wall(pg.sprite.Sprite):
         self.game = game
         self.bb_width, self.bb_height = size
         self.rect = pg.Rect(pos, (self.bb_width, self.bb_height))
-   
-    
+        self.hit_rect = self.rect
+
+    def update(self):
+        # not used right now
+        pass
+
     def draw(self):
-        self.game.screen.blit(self.image, self.rect.topleft)
-        
-        
-        
+        # not used right now
+        pass
+
+
+
 class Inventory(pg.sprite.Sprite):
     def __init__(self, game):
         self.groups = game.gui
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        
+
         # if in menu then True, otherwise False
         self.menu = False
-        
+
         self.size = (st.WIDTH, st.HEIGHT)
         self.start_pos = vec(0, (0 - st.HEIGHT + st.GUI_HEIGHT))
         self.pos = vec(self.start_pos)
         self.image = pg.Surface(self.size)
         self.image.fill(st.BLACK)
-        
+
         self.gui_img = fn.loadImage('inv_mockup.png', 0.99)
-        
-        
+
+
     def update(self):
         if self.game.key_down == pg.K_ESCAPE:
             self.menu = not self.menu
 
         if self.menu:
             self.game.state = 'MENU'
-            
+
             # sliding down animation
             if self.pos != (0, 0):
                 self.pos.y += st.SCROLLSPEED_MENU
@@ -225,11 +300,59 @@ class Inventory(pg.sprite.Sprite):
                 self.pos.y = min(0, self.pos.y)
             else:
                 self.game.state = 'GAME'
-            
-    
+
+
     def draw(self):
         self.game.screen.blit(self.image, self.pos)
         self.game.screen.blit(self.gui_img, self.pos)
+
+
+
+class Sword(pg.sprite.Sprite):
+    def __init__(self, game, player):
+        self.groups = game.all_sprites
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.player = player
+        self.game = game
+        self.image = fn.loadImage('sword.png')
+
+        self.pos = vec(0, 0)
+        self.rot = 0
+
+        self.dir = self.player.lastdir
+        # rotate image based on player direction and set position
+        if self.dir == UP:
+            self.rot = 0
+            self.pos = vec(self.player.pos.x - 4 * st.GLOBAL_SCALE, 
+                           self.player.pos.y - 24 * st.GLOBAL_SCALE)
+            
+        elif self.dir == DOWN:
+            self.rot = 180
+            self.pos = vec(self.player.pos.x, self.player.pos.y + 4 
+                           * st.GLOBAL_SCALE)
+            
+        elif self.dir == RIGHT:
+            self.rot = 270
+            self.pos = vec(self.player.pos.x + 7 * st.GLOBAL_SCALE,
+                           self.player.pos.y - 4 * st.GLOBAL_SCALE)
+            
+        elif self.dir == LEFT:
+            self.rot = 90
+            self.pos = vec(self.player.pos.x - 20 * st.GLOBAL_SCALE,
+                           self.player.pos.y - 4 * st.GLOBAL_SCALE)
+
+        self.image = pg.transform.rotate(self.image, self.rot)
         
-        
-        
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self.pos
+        self.hit_rect = self.rect
+        self.hit_rect.center = self.rect.center
+
+
+    def update(self):
+        if not self.player.state == 'ATTACK':
+            self.game.all_sprites.remove(self)
+
+
+    def draw(self):
+        self.game.screen.blit(self.image, self.pos)
