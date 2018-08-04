@@ -6,3 +6,4 @@
 - neues tileset (8x8 tiles)
 - st.TILESIZE und st.TILESIZE_SMALL
 - start/game over screen
+- pytmx

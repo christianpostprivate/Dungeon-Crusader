@@ -2,9 +2,11 @@ import pygame as pg
 import pickle
 from os import path
 import traceback
+from random import choice
 
 import functions as fn
 import settings as st
+import rooms as rm
 
 vec = pg.math.Vector2
 
@@ -76,7 +78,7 @@ class Player(pg.sprite.Sprite):
 
         self.state = 'IDLE'
         self.max_hp = st.PLAYER_HP_START
-        self.hp = self.max_hp
+        self.hp = 3.25
 
         self.itemA = None
         self.itemB = None
@@ -178,6 +180,14 @@ class Player(pg.sprite.Sprite):
                 self.attack_update = 0
                 self.state = 'IDLE'
 
+        # FOR TESTING
+        if self.game.debug:
+            if self.game.key_down == pg.K_PAGEUP:
+                self.hp += 0.25
+            elif self.game.key_down == pg.K_PAGEDOWN:
+                self.hp -= 0.25
+
+
 
     def update(self, others):
         self.get_keys()
@@ -194,6 +204,9 @@ class Player(pg.sprite.Sprite):
 
         # position the hitrect at the bottom of the image
         self.rect.midbottom = self.hit_rect.midbottom
+        
+        # restrain hp between 0 and max
+        self.hp = max(0, min(self.hp, self.max_hp))
 
 
     def draw(self):
@@ -245,22 +258,27 @@ class Player(pg.sprite.Sprite):
 
 
 class Wall(pg.sprite.Sprite):
-    def __init__(self, game, pos, size):
-        self.groups = game.walls
+    def __init__(self, game, pos, size, type_='wall'):
+        self.groups = game.walls#, game.all_sprites
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
         self.bb_width, self.bb_height = size
         self.rect = pg.Rect(pos, (self.bb_width, self.bb_height))
         self.hit_rect = self.rect
+        
+        if type_ == 'block':
+            self.image = fn.getSubimg(self.game.tileset_image, 16, 16, (16, 0))
+        else:
+            self.image = None
 
     def update(self):
         # not used right now
         pass
 
     def draw(self):
-        # not used right now
-        pass
-
+        if self.image:
+            self.game.screen.blit(self.image, self.rect.topleft)
+            
 
 
 class Inventory(pg.sprite.Sprite):
@@ -278,7 +296,26 @@ class Inventory(pg.sprite.Sprite):
         self.image = pg.Surface(self.size)
         self.image.fill(st.BLACK)
 
-        self.gui_img = fn.loadImage('inv_mockup.png', 0.99)
+        self.map_img = None
+
+        # inventory background
+        self.gui_img = fn.loadImage('inventory_bg.png')
+        self.cursor_images = [
+                              fn.loadImage('cursor.png'),
+                              pg.Surface((16, 16)).fill(st.TRANS)
+                              ]
+        self.cursor_pos = vec(24 * st.GLOBAL_SCALE, 40 * st.GLOBAL_SCALE)
+        
+        # "health" string
+        self.health_string = fn.loadImage('health_string.png')
+        # images for the player health
+        self.heart_images = fn.img_list_from_strip('hearts_strip.png',8, 8, 
+                                                   0, 6, scale=False)
+        for i in range(len(self.heart_images)):
+            self.heart_images[i] = pg.transform.scale(self.heart_images[i], 
+                                  (8 * st.GLOBAL_SCALE, 8 * st.GLOBAL_SCALE))
+            
+        self.inv_index = [0, 0]
 
 
     def update(self):
@@ -292,6 +329,8 @@ class Inventory(pg.sprite.Sprite):
             if self.pos != (0, 0):
                 self.pos.y += st.SCROLLSPEED_MENU
                 self.pos.y = min(0, self.pos.y)
+                
+            self.move_cursor()
 
         else:
             # sliding up animation
@@ -303,8 +342,69 @@ class Inventory(pg.sprite.Sprite):
 
 
     def draw(self):
+        self.image.fill(st.BLACK)
+        # draw player health
+        player = self.game.player
+        for i in range(int(player.max_hp)):
+            # calculate position
+            if i < st.PLAYER_HP_MAX // 2:
+                pos = (6 * st.GLOBAL_SCALE + 10 * i * st.GLOBAL_SCALE, 
+                      (st.HEIGHT - 34 * st.GLOBAL_SCALE))
+            else:
+                pos = (6 * st.GLOBAL_SCALE + 10 * (i - 7) * st.GLOBAL_SCALE, 
+                      (st.HEIGHT - 24 * st.GLOBAL_SCALE))
+
+            # draw hearts:
+            if i < int(player.hp):
+                img = self.heart_images[1]
+            elif i == int(player.hp):
+                if player.hp % 1 == 0.25:
+                    img = self.heart_images[4]
+                elif player.hp % 1 == 0.5:
+                    img = self.heart_images[3]
+                elif player.hp % 1 == 0.75:
+                    img = self.heart_images[2]
+                else:
+                    img = self.heart_images[5]
+            else:
+                img = self.heart_images[5]
+
+            self.image.blit(img, pos)
+        
+        self.image.blit(self.health_string, (25 * st.GLOBAL_SCALE, 
+                                             st.HEIGHT - 42 * st.GLOBAL_SCALE))
+
+        # draw the mini map
+        map_pos = (192 * st.GLOBAL_SCALE, st.HEIGHT - 44 * st.GLOBAL_SCALE)
+        self.image.blit(self.map_img, map_pos)
+
+        # draw the inventory background
+        self.image.blit(self.gui_img, (0, 0))
+        self.draw_cursor()
+        
         self.game.screen.blit(self.image, self.pos)
-        self.game.screen.blit(self.gui_img, self.pos)
+        
+       
+    def move_cursor(self):
+        key = self.game.key_down
+        # arrow keys
+        move_x = (key == pg.K_RIGHT) - (key == pg.K_LEFT)
+        move_y = (key == pg.K_DOWN) - (key == pg.K_UP)
+        # WASD 
+        move_x = (key == pg.K_d) - (key == pg.K_a)
+        move_y = (key == pg.K_s) - (key == pg.K_w)
+        
+        self.cursor_pos.x += move_x * 24 * st.GLOBAL_SCALE
+        self.cursor_pos.y += move_y * 24 * st.GLOBAL_SCALE
+        
+        self.cursor_pos.x = fn.clamp(self.cursor_pos.x, 24 * st.GLOBAL_SCALE, 
+                                     120 * st.GLOBAL_SCALE)
+        self.cursor_pos.y = fn.clamp(self.cursor_pos.y, 40 * st.GLOBAL_SCALE, 
+                                     136 * st.GLOBAL_SCALE)
+    
+    
+    def draw_cursor(self):
+        self.image.blit(self.cursor_images[0], self.cursor_pos)
 
 
 
@@ -356,3 +456,118 @@ class Sword(pg.sprite.Sprite):
 
     def draw(self):
         self.game.screen.blit(self.image, self.pos)
+        
+# ----------------------- ENEMIES --------------------------
+        
+class Enemy(pg.sprite.Sprite):
+    def __init__(self, game, pos, images):
+        self.groups = game.all_sprites, game.enemies
+        pg.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+
+        self.walk_frames = images
+        self.image = self.walk_frames[0]
+        
+        self.rect = self.image.get_rect()
+        self.pos = vec(pos)
+        self.rect.center = pos
+        self.hit_rect = self.rect
+        self.hit_rect.center = self.rect.center
+        self.vel = vec(0, 0)
+        self.dir = vec(DOWN)
+        self.lastdir = vec(DOWN)
+        self.moveTo = None
+        self.acc = vec(0, 0)
+        self.maxSpeed = 0.5 * st.GLOBAL_SCALE
+
+        self.state = 'IDLE'
+
+        self.anim_update = 0
+        self.walk_update = 0
+        self.current_frame = 0
+        
+        # testing a save function
+        self.saveGame = self.game.saveGame
+        
+        
+    def move(self):
+        # acceleration
+        self.acc = vec(1, 1) * 0.3
+
+        self.friction = 0.1
+
+        # add acceleration to velocity
+        if self.moveTo == LEFT:
+            self.vel.x -= self.acc.x           
+            self.dir = vec(LEFT)
+            self.lastdir = vec(LEFT)
+
+        if self.moveTo == RIGHT:
+            self.vel.x += self.acc.x            
+            self.dir = vec(RIGHT)
+            self.lastdir = vec(RIGHT)
+
+        if self.moveTo == UP:
+            self.vel.y -= self.acc.y
+            self.dir = vec(UP)
+            self.lastdir = vec(UP)
+
+        if self.moveTo == DOWN:
+            self.vel.y += self.acc.y
+            self.dir = vec(DOWN)
+            self.lastdir = vec(DOWN)
+
+        # apply friction
+        self.vel *= (1 - self.friction)
+
+        # cap speed at maximum
+        if self.vel.length() > self.maxSpeed:
+            self.vel.scale_to_length(self.maxSpeed)
+
+        # stop from sliding infinitely
+        if self.vel.length() < 0.1:
+            self.vel = vec(0, 0)
+
+        if self.vel.length() > 0.2:
+            self.state = 'WALKING'
+        else:
+            self.state = 'IDLE'
+        
+        
+    def update(self):
+        self.move()
+        
+        self.animate()
+        
+        now = pg.time.get_ticks()
+        if now - self.walk_update > 2000:
+            self.walk_update = now
+            self.moveTo = choice([LEFT, RIGHT, DOWN, UP])
+            
+        self.rect = self.image.get_rect()
+        self.rect.center = self.pos
+        self.pos += self.vel
+        self.hit_rect.centerx = self.pos.x
+        fn.collide_with_walls(self, self.game.walls, 'x')
+        self.hit_rect.centery = self.pos.y
+        fn.collide_with_walls(self, self.game.walls, 'y')
+
+        # position the hitrect at the bottom of the image
+        self.rect.midbottom = self.hit_rect.midbottom    
+        
+    
+    def animate(self):
+        now = pg.time.get_ticks()
+
+        if self.state == 'WALKING':
+            if now - self.anim_update > 300:
+                self.anim_update = now
+                self.current_frame = (self.current_frame + 1) % len(
+                                      self.walk_frames)
+                self.image = self.walk_frames[self.current_frame]
+            
+            
+    def draw(self):
+        self.game.screen.blit(self.image, self.rect.topleft)
+        
+
