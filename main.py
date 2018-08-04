@@ -18,6 +18,7 @@ class Game():
         pg.init()
 
         pg.key.set_repeat(200, 150)
+        pg.mouse.set_visible(False)
 
         self.screen = pg.display.set_mode((st.WIDTH, st.HEIGHT))
 
@@ -26,7 +27,7 @@ class Game():
         self.loaded = False
 
         # booleans for drawing the hit rects and other debug stuff
-        self.draw_debug = False
+        self.debug = False
         self.slowmotion = False
         self.caption = ''
 
@@ -63,12 +64,15 @@ class Game():
                                 }
 
 
-        self.tileset_names = ['tileset.png', 'tileset_sand.png',
-                              'tileset_green.png','tileset_red.png']
+        #self.tileset_names = ['tileset.png', 'tileset_sand.png',
+                              #'tileset_green.png','tileset_red.png']
+        self.tileset_names = ['tileset_red_8x8.png']
+        
+        self.tileset_image = fn.loadImage(self.tileset_names[0], 1)
 
         # THIS IS NEW!
-        self.tileset_dict = {key: fn.tileImageScale(key, 16, 16,
-                                scale=1) for key in self.tileset_names}
+        self.tileset_dict = {key: fn.tileImageScale(key, 8, 8, scale=True) 
+                                for key in self.tileset_names}
 
 
     def loadSavefile(self):
@@ -90,11 +94,17 @@ class Game():
 
 
     def new(self):
+        #print('width', st.WIDTH / st.GLOBAL_SCALE, 'height', 
+              #st.HEIGHT / st.GLOBAL_SCALE)
+        #print('tiles_w', st.TILES_W)
+
+
         # start a new game
         # initialise sprite groups
         self.all_sprites = pg.sprite.Group()
         self.walls = pg.sprite.Group()
         self.gui = pg.sprite.Group()
+        self.enemies = pg.sprite.Group()
 
         # instantiate dungeon
         self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
@@ -120,6 +130,11 @@ class Game():
                                       self.tileset_dict[self.dungeon.tileset],
                                       self.dungeon.room_index)
 
+        # TESTING ENEMIES
+        #images = fn.img_list_from_strip('skeleton.png', 16, 16, 0, 2)
+        #enemy1 = spr.Enemy(self, (300, 500), images)
+        #enemy2 = spr.Enemy(self, (300, 500), images)
+
         self.run()
 
 
@@ -137,9 +152,10 @@ class Game():
 
 
     def update(self):
-
-        #self.caption = st.TITLE
-        self.caption = str(self.player.state) + ' ' + str(self.player.attack_update)
+        if self.debug:
+            self.caption = str(self.player.state) + ' ' + str(self.player.attack_update)
+        else:
+            self.caption = st.TITLE
         pg.display.set_caption(self.caption)
         if self.slowmotion:
             pg.display.set_caption('slowmotion')
@@ -178,7 +194,7 @@ class Game():
                 self.running = False
 
             if event.type == pg.KEYDOWN:
-                if event.key == pg.K_r:
+                if event.key == pg.K_r and self.debug:
                     self.loaded = False
                     self.new()
 
@@ -192,7 +208,7 @@ class Game():
                     self.writeSavefile()
 
                 if event.key == pg.K_h:
-                    self.draw_debug = not self.draw_debug
+                    self.debug = not self.debug
 
                 if event.key == pg.K_F4:
                     self.slowmotion = not self.slowmotion
@@ -202,10 +218,9 @@ class Game():
         self.screen.blit(self.background, (0, st.GUI_HEIGHT))
 
         for sprite in self.all_sprites:
-            if sprite not in self.walls:
-                sprite.draw()
+            sprite.draw()
 
-        if self.draw_debug:
+        if self.debug:
             for sprite in self.all_sprites:
                 pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
             for sprite in self.walls:
@@ -218,9 +233,12 @@ class Game():
 
     def drawGUI(self):
         # Interface (Items, HUD, map)
-        self.inventory.draw()
+        
         if self.dungeon.done:
-            self.dungeon.blitRooms()
+            self.inventory.map_img = self.dungeon.blitRooms()
+
+        self.inventory.draw()
+
 
 
     def RoomTransition(self, new_pos, direction):
@@ -277,12 +295,8 @@ class Game():
                 pos2.x -= scroll_speed
                 pos.x = max(0, pos.x)
 
-            if direction == 'UP':
-                self.screen.blit(self.background, pos)
-                self.screen.blit(old_background, pos2)
-            else:
-                self.screen.blit(old_background, pos2)
-                self.screen.blit(self.background, pos)
+            self.screen.blit(old_background, pos2)
+            self.screen.blit(self.background, pos)    
             self.drawGUI()
 
             pg.display.flip()

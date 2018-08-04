@@ -29,58 +29,28 @@ class Room():
         
         self.tileRoom()
         
-        
+    
     def tileRoom(self):
-        
         # positions of the doors
         door_w = self.w // 2
         door_h = self.h // 2
-        
-        # layout is for objects, tiles for the tileset index
+
+        # read tileset data from file (8 by 8)
+        self.tiles = fn.tileset_from_csv('room_empty.csv')
+
+        # set layout (16 x 16) FOR NOW!!!
         self.layout = []
-        self.tiles = []
         for i in range(self.h):
             self.layout.append([])
-            self.tiles.append([])
             if i <= 1:
                 # upper walls
                 for j in range(self.w):
                     self.layout[i].append(1)
-                    
-                    if i == 1:
-                    
-                        if j == 0:
-                            self.tiles[i].append(19)
-                        elif j == 1:
-                            self.tiles[i].append(12)
-                        elif j == self.w - 1:
-                            self.tiles[i].append(19)
-                        elif j == self.w - 2:
-                            self.tiles[i].append(13)
-                        else:
-                            self.tiles[i].append(28)
-                    elif i == 0:
-                        self.tiles[i].append(19)
                         
             elif i >= self.h - 2:
                 # lower walls
                 for j in range(self.w):
                     self.layout[i].append(1)
-                    
-                    if i == self.h - 2:
-                        if j == 0:
-                            self.tiles[i].append(19)
-                        elif j == 1:    
-                            self.tiles[i].append(21)
-                        elif j == self.w - 2:
-                            self.tiles[i].append(22)
-                        elif j == self.w - 1:
-                            self.tiles[i].append(19)
-                        else:
-                            self.tiles[i].append(10)
-                            
-                    elif i == self.h - 1:
-                        self.tiles[i].append(19)
                             
             else:
                 for j in range(self.w):
@@ -88,78 +58,145 @@ class Room():
                         # left wall
                         self.layout[i].append(1)
                         
-                        if j == 1:
-                            self.tiles[i].append(20)
-                        else:    
-                            self.tiles[i].append(19)
-                        
                     elif j >= self.w - 2:
                         # right wall
                         self.layout[i].append(1)
-                        
-                        if j == self.w - 2:
-                            self.tiles[i].append(18)
-                        else:
-                            self.tiles[i].append(19)
+             
                     else:
                         self.layout[i].append(0)
-                        self.tiles[i].append(0)
+                        
+        self.layout_small = [[0 for i in range(self.w * 2)] 
+                             for j in range(self.h * 2)]
        
         # north
         if 'N' in self.doors:
             self.layout[0][door_w] = 0
+            self.layout[0][door_w - 1] = 0
             self.layout[1][door_w] = 0
-            # 35, 34, 33
-            self.tiles[1][door_w + 1] = 35
-            self.tiles[1][door_w] = 34
-            self.tiles[1][door_w - 1] = 33
+            self.layout[1][door_w - 1] = 0
             
+            # 8 * 32 Walls for the door edges
+            self.layout_small[0][door_w * 2 - 2] = 1
+            self.layout_small[0][door_w * 2 + 1] = 1
+            
+            # create the door tiles
+            self.tiles[1][door_w * 2 - 2] = 17
+            self.tiles[1][door_w * 2 - 1] = 18
+            self.tiles[1][door_w * 2 - 0] = 19
+            self.tiles[1][door_w * 2 + 1] = 70
+            
+            self.tiles[2][door_w * 2 - 2] = 37
+            self.tiles[2][door_w * 2 - 1] = 38
+            self.tiles[2][door_w * 2 - 0] = 39
+            self.tiles[2][door_w * 2 + 1] = 90
+            
+            self.tiles[3][door_w * 2 - 2] = 57
+            self.tiles[3][door_w * 2 - 1] = 58
+            self.tiles[3][door_w * 2 - 0] = 59
+            self.tiles[3][door_w * 2 + 1] = 110
+
         # south
         if 'S' in self.doors:
             self.layout[self.h - 2][door_w] = 0
             self.layout[self.h - 1][door_w] = 0
+            self.layout[self.h - 2][door_w - 1] = 0
+            self.layout[self.h - 1][door_w - 1] = 0
             
-            self.tiles[self.h - 2][door_w + 1] = 32
-            self.tiles[self.h - 2][door_w] = 31
-            self.tiles[self.h - 2][door_w - 1] = 30
-        
+            self.layout_small[self.h * 2 - 4][door_w * 2 - 2] = 1
+            self.layout_small[self.h * 2 - 4][door_w * 2 + 1] = 1
+            
+            self.tiles[self.h * 2 - 4][door_w * 2 - 2] = 132
+            self.tiles[self.h * 2 - 4][door_w * 2 - 1] = 133
+            self.tiles[self.h * 2 - 4][door_w * 2 + 0] = 134
+            self.tiles[self.h * 2 - 4][door_w * 2 + 1] = 135
+            
+            self.tiles[self.h * 2 - 3][door_w * 2 - 2] = 152
+            self.tiles[self.h * 2 - 3][door_w * 2 - 1] = 153
+            self.tiles[self.h * 2 - 3][door_w * 2 + 0] = 154
+            self.tiles[self.h * 2 - 3][door_w * 2 + 1] = 155
+            
+            self.tiles[self.h * 2 - 2][door_w * 2 - 2] = 172
+            self.tiles[self.h * 2 - 2][door_w * 2 - 1] = 173
+            self.tiles[self.h * 2 - 2][door_w * 2 + 0] = 174
+            self.tiles[self.h * 2 - 2][door_w * 2 + 1] = 175
+            
         # west
         if 'W' in self.doors:
             self.layout[door_h][0] = 0
             self.layout[door_h][1] = 0
+            self.layout[door_h - 1][0] = 0
+            self.layout[door_h - 1][1] = 0
             
-            self.tiles[door_h + 1][1] = 24
-            self.tiles[door_h][1] = 15
-            self.tiles[door_h - 1][1] = 6
-        
+            self.layout_small[door_h * 2 - 2][0] = 2
+            self.layout_small[door_h * 2 + 1][0] = 2
+            
+            self.tiles[door_h * 2 - 2][1] = 41
+            self.tiles[door_h * 2 - 2][2] = 42
+            self.tiles[door_h * 2 - 2][3] = 43
+            
+            self.tiles[door_h * 2 - 1][1] = 61
+            self.tiles[door_h * 2 - 1][2] = 62
+            self.tiles[door_h * 2 - 1][3] = 63
+            
+            self.tiles[door_h * 2 - 0][1] = 81
+            self.tiles[door_h * 2 - 0][2] = 82
+            self.tiles[door_h * 2 - 0][3] = 83
+            
+            self.tiles[door_h * 2 + 1][1] = 101
+            self.tiles[door_h * 2 + 1][2] = 102
+            self.tiles[door_h * 2 + 1][3] = 103
+            
         # east
         if 'E' in self.doors:
             self.layout[door_h][self.w - 2] = 0
             self.layout[door_h][self.w - 1] = 0
+            self.layout[door_h - 1][self.w - 2] = 0
+            self.layout[door_h - 1][self.w - 1] = 0
             
-            self.tiles[door_h + 1][self.w - 2] = 23
-            self.tiles[door_h][self.w - 2] = 14
-            self.tiles[door_h - 1][self.w - 2] = 5
-        
-        
+            self.layout_small[door_h * 2 - 2][self.w * 2 - 4] = 2
+            self.layout_small[door_h * 2 + 1][self.w * 2 - 4] = 2
+            
+            self.tiles[door_h * 2 - 2][self.w * 2 - 4] = 195
+            self.tiles[door_h * 2 - 2][self.w * 2 - 3] = 196
+            self.tiles[door_h * 2 - 2][self.w * 2 - 2] = 197
+            
+            self.tiles[door_h * 2 - 1][self.w * 2 - 4] = 215
+            self.tiles[door_h * 2 - 1][self.w * 2 - 3] = 216
+            self.tiles[door_h * 2 - 1][self.w * 2 - 2] = 217
+            
+            self.tiles[door_h * 2 - 0][self.w * 2 - 4] = 235
+            self.tiles[door_h * 2 - 0][self.w * 2 - 3] = 236
+            self.tiles[door_h * 2 - 0][self.w * 2 - 2] = 237
+            
+            self.tiles[door_h * 2 + 1][self.w * 2 - 4] = 198
+            self.tiles[door_h * 2 + 1][self.w * 2 - 3] = 199
+            self.tiles[door_h * 2 + 1][self.w * 2 - 2] = 78
+
+
     def buildInterior(self):
         # in the room
-        w = self.w - 2
-        h = self.h - 2
+        w = (self.w - 2)
+        h = (self.h - 2)
+        
         
         door_w = self.w // 2
         door_h = self.h // 2
         # floor tile index
-        floor = 4
-        for i in range(2, h):
-            for j in range(2, w):
-                if randint(0, 100) <= 10 and (
-                        i != door_h and j != door_w): 
-                    self.layout[i][j] = 1    
-                    self.tiles[i][j] = 1
+        #floor = 4
+        for i in range(4, h - 2):
+            for j in range(4, w - 2):
+                if randint(0, 100) <= 20 and (i != door_h and i != door_h - 1 
+                              and j != door_w and j != door_w - 1): 
+                    self.layout[i][j] = 2
+                    
+                    # tiles
+                    self.tiles[i * 2][j * 2] = 2
+                    self.tiles[i * 2][j * 2 + 1] = 3
+                    self.tiles[i * 2 + 1][j * 2] = 22
+                    self.tiles[i * 2 + 1][j * 2 + 1] = 23
                 else:
                     self.layout[i][j] = 0  
-                    self.tiles[i][j] = floor
+
                     
                     
 
@@ -187,11 +224,6 @@ class Dungeon():
         self.saveGame = self.game.saveGame
         
         self.tileset = choice(self.game.tileset_names)
-        
-        #self.seed = randint(100000, 999999)
-        #self.seed = 123456
-        
-        #self.create(None)
         
         
     def saveSelf(self):   
@@ -422,8 +454,6 @@ class Dungeon():
         self.map_img.blit(player_imgs[self.current_frame], pos2)
         
         scaled = (w * st.GLOBAL_SCALE, h * st.GLOBAL_SCALE)
-        self.game.inventory.image.blit(pg.transform.scale(self.map_img, scaled), 
-                                       (st.WIDTH - scaled[0] - margin, 
-                                        st.HEIGHT - st.GUI_HEIGHT + margin))
+        return pg.transform.scale(self.map_img, scaled)
         
         
