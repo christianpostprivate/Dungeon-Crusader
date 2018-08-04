@@ -1,12 +1,18 @@
 import pygame as pg
 from os import path
 import traceback
+import csv
 
 import settings as st
 import sprites as spr
 
 vec = pg.math.Vector2
 
+
+def clamp(var, lower, upper):
+    # restrains a variable's value between two values
+    return max(lower, min(var, upper))
+    
 
 def collide_hit_rect(one, two):
     return one.hit_rect.colliderect(two.rect)
@@ -48,17 +54,21 @@ def screenWrap(player, dungeon):
     new_pos = vec(player.hit_rect.center)
     if player.rect.left < st.TILESIZE:
         direction = 'LEFT'
+        player.vel = vec(0, 0)
         new_pos.x  = st.WIDTH - player.rect.width - st.TILESIZE
         index[1] -= 1
     if player.rect.right > st.WIDTH - st.TILESIZE:
         direction = 'RIGHT'
-        new_pos.x = player.rect.width + st.TILESIZE
+        player.vel = vec(0, 0)
+        new_pos.x = player.hit_rect.width + st.TILESIZE
         index[1] += 1
     if player.rect.top < st.GUI_HEIGHT + st.TILESIZE:
+        player.vel = vec(0, 0)
         direction = 'UP'
-        new_pos.y = st.HEIGHT - player.rect.height - st.TILESIZE
+        new_pos.y = st.HEIGHT - player.hit_rect.height - st.TILESIZE
         index[0] -= 1
     if player.rect.bottom > st.HEIGHT - st.TILESIZE:
+        player.vel = vec(0, 0)
         direction = 'DOWN'
         new_pos.y = player.rect.height + st.GUI_HEIGHT + st.TILESIZE
         index[0] += 1
@@ -73,14 +83,32 @@ def transitRoom(game, group, dungeon):
     #based on the room data matching the given room number
     index = dungeon.room_index
     data = dungeon.rooms[index[0]][index[1]].layout
+    data_small = dungeon.rooms[index[0]][index[1]].layout_small
     try:
         group.empty()
+        for sprite in game.all_sprites:
+            if sprite == spr.Wall:
+                game.all_sprites.remove(sprite)
         for i in range(len(data)):
             for j in range(len(data[i])):
                 if data[i][j] == 1:
-                    group.add(spr.Wall(game, (j * st.TILESIZE, i * st.TILESIZE
+                    spr.Wall(game, (j * st.TILESIZE, i * st.TILESIZE
                                               + st.GUI_HEIGHT), 
-                                        (st.TILESIZE, st.TILESIZE)))
+                                        (st.TILESIZE, st.TILESIZE))
+                elif data[i][j] == 2:
+                    spr.Wall(game, (j * st.TILESIZE, i * st.TILESIZE
+                                              + st.GUI_HEIGHT), 
+                                        (st.TILESIZE, st.TILESIZE), 'block')
+        for i in range(len(data_small)):
+            for j in range(len(data_small[i])):
+                if data_small[i][j] == 1:
+                    spr.Wall(game, (j * st.TILESIZE_SMALL, i * st.TILESIZE_SMALL
+                                    + st.GUI_HEIGHT), (st.TILESIZE_SMALL, 
+                                                   st.TILESIZE_SMALL * 4))
+                elif data_small[i][j] == 2:
+                    spr.Wall(game, (j * st.TILESIZE_SMALL, i * st.TILESIZE_SMALL
+                                    + st.GUI_HEIGHT), (st.TILESIZE_SMALL * 4, 
+                                                   st.TILESIZE_SMALL))
                     
         dungeon.rooms[index[0]][index[1]].visited = True
         
@@ -91,8 +119,7 @@ def transitRoom(game, group, dungeon):
         return group
     
 
-def loadImage(filename, scale=1):
-    scale *= st.GLOBAL_SCALE
+def loadImage(filename, scale=st.GLOBAL_SCALE):
     directory = path.dirname(__file__)
     img_folder = path.join(directory, 'images')
     file = path.join(img_folder, filename)
@@ -106,7 +133,7 @@ def loadImage(filename, scale=1):
         return
 
 
-def img_list_from_strip(filename, width, height, startpos, number, transform=True):
+def img_list_from_strip(filename, width, height, startpos, number, scale=True):
     directory = path.dirname(__file__)
     img_folder = path.join(directory, 'images')
     file = path.join(img_folder, filename)
@@ -118,7 +145,7 @@ def img_list_from_strip(filename, width, height, startpos, number, transform=Tru
     img_set = []
     for i in range(startpos, (startpos + number)):
         rect = ((i * width, 0), (width, height))
-        if transform:
+        if scale:
             subimg = pg.transform.scale(img.subsurface(rect), 
                                         (st.TILESIZE, st.TILESIZE))
         else:
@@ -127,7 +154,18 @@ def img_list_from_strip(filename, width, height, startpos, number, transform=Tru
     return img_set
 
 
-def tileImageScale(filename, size_w=st.TILESIZE, size_h=st.TILESIZE, scale=1, 
+def getSubimg(image, width, height, topleft, scale=True):
+
+    rect = (topleft, (width, height))
+    if scale:
+        subimg = pg.transform.scale(image.subsurface(rect), 
+                                    (st.TILESIZE, st.TILESIZE))
+    else:
+        subimg = image.subsurface(rect)
+    return subimg
+    
+
+def tileImageScale(filename, size_w, size_h, scale=1, 
                    alpha=False):
     directory = path.dirname(__file__)
     img_folder = path.join(directory, 'images')
@@ -141,6 +179,7 @@ def tileImageScale(filename, size_w=st.TILESIZE, size_h=st.TILESIZE, scale=1,
         traceback.print_exc()
         return
     
+    # size of the tileset
     width, height = img.get_width(), img.get_height()
     tiles_hor = width // size_w
     tiles_vert = height // size_h
@@ -151,22 +190,24 @@ def tileImageScale(filename, size_w=st.TILESIZE, size_h=st.TILESIZE, scale=1,
             rect = (size_w * j, size_h * i, size_w, size_h)
             subimg = img.subsurface(rect)
             tileset.append(pg.transform.scale(
-                    subimg, (int(st.TILESIZE * scale * wh_ratio), 
-                             int(st.TILESIZE * scale))))
+                    subimg, (int(st.TILESIZE_SMALL * scale * wh_ratio), 
+                             int(st.TILESIZE_SMALL * scale))))
+    #print(filename, len(tileset))
     return tileset
 
 
 def tileRoom(game, tileset, index):
-    image = pg.Surface((st.WIDTH, st.HEIGHT))
+    image = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT))
     data = game.dungeon.rooms[index[0]][index[1]].tiles
     for i in range(len(data)):
         for j in range(len(data[i])):
-            x = j * st.TILESIZE
-            y = i * st.TILESIZE
+            x = j * st.TILESIZE_SMALL
+            y = i * st.TILESIZE_SMALL
             try:
                 image.blit(tileset[data[i][j]], (x, y))
             except Exception:
                 traceback.print_exc()
+                return
     return image
 
 
@@ -196,3 +237,28 @@ def keyDown(events):
     for event in events:
         if event.type == pg.KEYDOWN:
             return event.key
+
+
+def tileset_from_csv(filename, size=(32, 24)):
+    directory = path.dirname(__file__)
+    img_folder = path.join(directory, 'rooms')
+    file = path.join(img_folder, filename)
+    data = []
+    try:
+        with open(file, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            for row in reader:
+                if len(row) > 1:
+                    if len(row) > size[0]:
+                        row.pop()
+                    data.append([int(i) for i in row])
+        if len(data) == size[1]:
+            return data
+        else:
+            print('data size does not fit')
+            return
+
+    except Exception:
+        traceback.print_exc()
+        return
+
