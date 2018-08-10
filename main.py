@@ -10,6 +10,12 @@ import rooms
 
 vec = pg.math.Vector2
 
+# testing stuff
+#print(fn.objects_from_tmx('room_1.tmx'))
+#print(fn.tileset_from_tmx('room_1.tmx'))
+#print(spr.export_globals())
+
+
 class Game():
     def __init__(self):
         # initialise game window etc.
@@ -17,7 +23,7 @@ class Game():
         pg.mixer.init()
         pg.init()
 
-        pg.key.set_repeat(200, 150)
+        pg.key.set_repeat(150, 150)
         pg.mouse.set_visible(False)
 
         self.screen = pg.display.set_mode((st.WIDTH, st.HEIGHT))
@@ -62,6 +68,10 @@ class Game():
                                 'SWE': self.room_images[15],
                                 'NWS': self.room_images[16]
                                 }
+        
+        self.enemy_image_dict = {
+            'skeleton': fn.img_list_from_strip('skeleton.png', 16, 16, 0, 2)
+            }
 
 
         #self.tileset_names = ['tileset.png', 'tileset_sand.png',
@@ -122,8 +132,8 @@ class Game():
         if self.loaded:
             self.loadSavefile()
 
-        # spawn the wall objects (invisible)
-        self.walls = fn.transitRoom(self, self.walls, self.dungeon)
+        # spawn the new objects (invisible)
+        fn.transitRoomNEW(self, self.dungeon)
 
         # create a background image from the tileset for the current room
         self.background = fn.tileRoom(self,
@@ -302,7 +312,7 @@ class Game():
             pg.display.flip()
 
         # put wall objects in the room after transition
-        self.walls = fn.transitRoom(self, self.walls, self.dungeon)
+        fn.transitRoomNEW(self, self.dungeon)
 
 
 

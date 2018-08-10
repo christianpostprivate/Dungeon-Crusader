@@ -6,7 +6,7 @@ from random import choice
 
 import functions as fn
 import settings as st
-import rooms as rm
+#import rooms as rm
 
 vec = pg.math.Vector2
 
@@ -14,6 +14,11 @@ UP = (0, -1)
 DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
+
+
+def export_globals():
+    return globals()
+
 
 class saveObject():
     def __init__(self):
@@ -257,19 +262,14 @@ class Player(pg.sprite.Sprite):
         
 
 
-class Wall(pg.sprite.Sprite):
-    def __init__(self, game, pos, size, type_='wall'):
-        self.groups = game.walls#, game.all_sprites
+class Solid(pg.sprite.Sprite):
+    def __init__(self, game, pos, size):
+        self.groups = game.walls, game.all_sprites
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
         self.bb_width, self.bb_height = size
         self.rect = pg.Rect(pos, (self.bb_width, self.bb_height))
         self.hit_rect = self.rect
-        
-        if type_ == 'block':
-            self.image = fn.getSubimg(self.game.tileset_image, 16, 16, (16, 0))
-        else:
-            self.image = None
 
     def update(self):
         # not used right now
@@ -278,6 +278,18 @@ class Wall(pg.sprite.Sprite):
     def draw(self):
         if self.image:
             self.game.screen.blit(self.image, self.rect.topleft)
+            
+
+class Wall(Solid):
+    def __init__(self, game, pos, size):
+        super().__init__(game, pos, size)
+        self.image = None
+        
+        
+class Block(Solid):
+    def __init__(self, game, pos, size):
+        super().__init__(game, pos, size)
+        self.image = fn.getSubimg(self.game.tileset_image, 16, 16, (16, 0))
             
 
 
@@ -460,12 +472,12 @@ class Sword(pg.sprite.Sprite):
 # ----------------------- ENEMIES --------------------------
         
 class Enemy(pg.sprite.Sprite):
-    def __init__(self, game, pos, images):
+    def __init__(self, game, pos, size):
         self.groups = game.all_sprites, game.enemies
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
 
-        self.walk_frames = images
+        #self.walk_frames = images
         self.image = self.walk_frames[0]
         
         self.rect = self.image.get_rect()
@@ -569,5 +581,12 @@ class Enemy(pg.sprite.Sprite):
             
     def draw(self):
         self.game.screen.blit(self.image, self.rect.topleft)
+        
+
+
+class Skeleton(Enemy):
+    def __init__(self, game, pos, size):
+        self.walk_frames = game.enemy_image_dict['skeleton']
+        super().__init__(game, pos, size)
         
 

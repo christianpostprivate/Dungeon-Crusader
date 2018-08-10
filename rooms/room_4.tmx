@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="2018.03.21" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="8" tileheight="8" infinite="0" nextobjectid="18">
+<map version="1.0" tiledversion="2018.03.21" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="8" tileheight="8" infinite="0" nextobjectid="35">
  <tileset firstgid="1" source="../images/tileset_red_8x8.tsx"/>
  <layer name="tiles" width="32" height="24">
   <data encoding="csv">
@@ -29,5 +29,23 @@
 41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41
 </data>
  </layer>
- <objectgroup name="objects"/>
+ <objectgroup name="objects">
+  <object id="18" name="wall" x="0" y="0" width="120" height="32"/>
+  <object id="19" name="wall" x="136" y="0" width="120" height="32"/>
+  <object id="20" name="wall" x="136" y="160" width="120" height="32"/>
+  <object id="21" name="wall" x="0" y="160" width="120" height="32"/>
+  <object id="22" name="wall" x="0" y="32" width="32" height="56"/>
+  <object id="23" name="wall" x="224" y="32" width="32" height="56"/>
+  <object id="24" name="wall" x="0" y="104" width="32" height="56"/>
+  <object id="25" name="wall" x="224" y="104" width="32" height="56"/>
+  <object id="26" name="lava" x="32" y="32" width="80" height="16"/>
+  <object id="27" name="lava" x="144" y="32" width="80" height="16"/>
+  <object id="28" name="lava" x="32" y="144" width="80" height="16"/>
+  <object id="29" name="lava" x="144" y="144" width="80" height="16"/>
+  <object id="30" name="lava" x="32" y="48" width="16" height="32"/>
+  <object id="31" name="lava" x="32" y="112" width="16" height="32"/>
+  <object id="32" name="lava" x="208" y="48" width="16" height="32"/>
+  <object id="33" name="lava" x="208" y="112" width="16" height="32"/>
+  <object id="34" name="lava" x="80" y="80" width="96" height="32"/>
+ </objectgroup>
 </map>
