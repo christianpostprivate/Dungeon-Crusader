@@ -1,7 +1,7 @@
 import pygame as pg
 from os import path
 import traceback
-import csv
+import xml.etree.ElementTree as ET
 
 import settings as st
 import sprites as spr
@@ -78,45 +78,18 @@ def screenWrap(player, dungeon):
         traceback.print_exc()
 
 
-def transitRoom(game, group, dungeon):
-    #deletes all instances in the group and adds new ones
-    #based on the room data matching the given room number
+def transitRoomNEW(game, dungeon):
     index = dungeon.room_index
-    data = dungeon.rooms[index[0]][index[1]].layout
-    data_small = dungeon.rooms[index[0]][index[1]].layout_small
-    try:
-        group.empty()
-        for sprite in game.all_sprites:
-            if sprite == spr.Wall:
-                game.all_sprites.remove(sprite)
-        for i in range(len(data)):
-            for j in range(len(data[i])):
-                if data[i][j] == 1:
-                    spr.Wall(game, (j * st.TILESIZE, i * st.TILESIZE
-                                              + st.GUI_HEIGHT), 
-                                        (st.TILESIZE, st.TILESIZE))
-                elif data[i][j] == 2:
-                    spr.Wall(game, (j * st.TILESIZE, i * st.TILESIZE
-                                              + st.GUI_HEIGHT), 
-                                        (st.TILESIZE, st.TILESIZE), 'block')
-        for i in range(len(data_small)):
-            for j in range(len(data_small[i])):
-                if data_small[i][j] == 1:
-                    spr.Wall(game, (j * st.TILESIZE_SMALL, i * st.TILESIZE_SMALL
-                                    + st.GUI_HEIGHT), (st.TILESIZE_SMALL, 
-                                                   st.TILESIZE_SMALL * 4))
-                elif data_small[i][j] == 2:
-                    spr.Wall(game, (j * st.TILESIZE_SMALL, i * st.TILESIZE_SMALL
-                                    + st.GUI_HEIGHT), (st.TILESIZE_SMALL * 4, 
-                                                   st.TILESIZE_SMALL))
-                    
-        dungeon.rooms[index[0]][index[1]].visited = True
-        
-        return group
-    except Exception:
-        #if something goes wrong, return an empty group
-        traceback.print_exc()
-        return group
+    
+    # remove all sprite from the previous room
+    for sprite in game.all_sprites:
+        if sprite != game.player:
+            sprite.kill()
+
+    data = dungeon.rooms[index[0]][index[1]].layout    
+    objects_from_data2(game, data)
+    
+    dungeon.rooms[index[0]][index[1]].visited = True
     
 
 def loadImage(filename, scale=st.GLOBAL_SCALE):
@@ -238,27 +211,67 @@ def keyDown(events):
         if event.type == pg.KEYDOWN:
             return event.key
 
-
-def tileset_from_csv(filename, size=(32, 24)):
+    
+def tileset_from_tmx(filename):
     directory = path.dirname(__file__)
-    img_folder = path.join(directory, 'rooms')
-    file = path.join(img_folder, filename)
-    data = []
-    try:
-        with open(file, 'r') as f:
-            reader = csv.reader(f, delimiter=',')
-            for row in reader:
-                if len(row) > 1:
-                    if len(row) > size[0]:
-                        row.pop()
-                    data.append([int(i) for i in row])
-        if len(data) == size[1]:
-            return data
-        else:
-            print('data size does not fit')
-            return
+    room_folder = path.join(directory, 'rooms')
+    file = path.join(room_folder, filename)
 
-    except Exception:
-        traceback.print_exc()
-        return
+    tree = ET.parse(file)
+    root = tree.getroot()
+    
+    # get csv tile data
+    data = root[1][0].text
+    
+    data = data.replace(' ', '')
+    data = data.strip('\n')      
+    data = data.split('\n')
+    
+    array = [line.strip(',').split(',') for line in data]
+    
+    for i in range(len(array)):
+        for j in range(len(array[i])):
+            array[i][j] = int(array[i][j]) - 1
+        
+    return array    
 
+
+def objects_from_tmx(filename):
+    directory = path.dirname(__file__)
+    room_folder = path.join(directory, 'rooms')
+    file = path.join(room_folder, filename)
+
+    tree = ET.parse(file)
+    root = tree.getroot()
+    
+    # get object data as a list of dictionaries
+    objects = [obj.attrib for obj in root.iter('object')]
+    for o in objects:
+        for key, value in o.items():
+            try:
+                o[key] = int(value) * st.GLOBAL_SCALE
+            except:
+                pass
+    
+    return objects
+
+
+def objects_from_data(game, data):
+    for o in data:
+        if o['name'] == 'wall':           
+            spr.Wall(game, (o['x'], o['y'] +  st.GUI_HEIGHT),
+                     (o['width'], o['height']))
+        elif o['name'] == 'block':
+            spr.Block(game, (o['x'], o['y'] + st.GUI_HEIGHT), 
+                     (o['width'], o['height']))
+            
+
+def objects_from_data2(game, data):
+    for o in data:
+        try:
+            name = o['name'].capitalize()
+            spr.export_globals()[name](game, (o['x'], o['y'] +  st.GUI_HEIGHT),
+                     (o['width'], o['height']))
+        except Exception:
+            traceback.print_exc()
+            print('cannot make object:', o['name'])

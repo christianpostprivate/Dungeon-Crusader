@@ -19,6 +19,12 @@ class Room():
         self.visited = True
         self.dist = -1
         
+        # choose a random tmx file for this room
+        if self.type == 'start':
+            self.tm_file = 'room_0.tmx'
+        else:
+            self.tm_file = 'room_{}.tmx'.format(choice(st.TILEMAP_FILES))
+        
         self.build()
    
      
@@ -35,50 +41,12 @@ class Room():
         door_w = self.w // 2
         door_h = self.h // 2
 
-        # read tileset data from file (8 by 8)
-        self.tiles = fn.tileset_from_csv('room_empty.csv')
-
-        # set layout (16 x 16) FOR NOW!!!
-        self.layout = []
-        for i in range(self.h):
-            self.layout.append([])
-            if i <= 1:
-                # upper walls
-                for j in range(self.w):
-                    self.layout[i].append(1)
-                        
-            elif i >= self.h - 2:
-                # lower walls
-                for j in range(self.w):
-                    self.layout[i].append(1)
-                            
-            else:
-                for j in range(self.w):
-                    if j <= 1:
-                        # left wall
-                        self.layout[i].append(1)
-                        
-                    elif j >= self.w - 2:
-                        # right wall
-                        self.layout[i].append(1)
-             
-                    else:
-                        self.layout[i].append(0)
-                        
-        self.layout_small = [[0 for i in range(self.w * 2)] 
-                             for j in range(self.h * 2)]
+        # read tileset and object data from file
+        self.tiles = fn.tileset_from_tmx(self.tm_file)
+        self.layout = fn.objects_from_tmx(self.tm_file)
        
         # north
-        if 'N' in self.doors:
-            self.layout[0][door_w] = 0
-            self.layout[0][door_w - 1] = 0
-            self.layout[1][door_w] = 0
-            self.layout[1][door_w - 1] = 0
-            
-            # 8 * 32 Walls for the door edges
-            self.layout_small[0][door_w * 2 - 2] = 1
-            self.layout_small[0][door_w * 2 + 1] = 1
-            
+        if 'N' in self.doors:            
             # create the door tiles
             self.tiles[1][door_w * 2 - 2] = 17
             self.tiles[1][door_w * 2 - 1] = 18
@@ -97,14 +65,6 @@ class Room():
 
         # south
         if 'S' in self.doors:
-            self.layout[self.h - 2][door_w] = 0
-            self.layout[self.h - 1][door_w] = 0
-            self.layout[self.h - 2][door_w - 1] = 0
-            self.layout[self.h - 1][door_w - 1] = 0
-            
-            self.layout_small[self.h * 2 - 4][door_w * 2 - 2] = 1
-            self.layout_small[self.h * 2 - 4][door_w * 2 + 1] = 1
-            
             self.tiles[self.h * 2 - 4][door_w * 2 - 2] = 132
             self.tiles[self.h * 2 - 4][door_w * 2 - 1] = 133
             self.tiles[self.h * 2 - 4][door_w * 2 + 0] = 134
@@ -121,15 +81,7 @@ class Room():
             self.tiles[self.h * 2 - 2][door_w * 2 + 1] = 175
             
         # west
-        if 'W' in self.doors:
-            self.layout[door_h][0] = 0
-            self.layout[door_h][1] = 0
-            self.layout[door_h - 1][0] = 0
-            self.layout[door_h - 1][1] = 0
-            
-            self.layout_small[door_h * 2 - 2][0] = 2
-            self.layout_small[door_h * 2 + 1][0] = 2
-            
+        if 'W' in self.doors:            
             self.tiles[door_h * 2 - 2][1] = 41
             self.tiles[door_h * 2 - 2][2] = 42
             self.tiles[door_h * 2 - 2][3] = 43
@@ -147,15 +99,7 @@ class Room():
             self.tiles[door_h * 2 + 1][3] = 103
             
         # east
-        if 'E' in self.doors:
-            self.layout[door_h][self.w - 2] = 0
-            self.layout[door_h][self.w - 1] = 0
-            self.layout[door_h - 1][self.w - 2] = 0
-            self.layout[door_h - 1][self.w - 1] = 0
-            
-            self.layout_small[door_h * 2 - 2][self.w * 2 - 4] = 2
-            self.layout_small[door_h * 2 + 1][self.w * 2 - 4] = 2
-            
+        if 'E' in self.doors:            
             self.tiles[door_h * 2 - 2][self.w * 2 - 4] = 195
             self.tiles[door_h * 2 - 2][self.w * 2 - 3] = 196
             self.tiles[door_h * 2 - 2][self.w * 2 - 2] = 197
@@ -171,34 +115,22 @@ class Room():
             self.tiles[door_h * 2 + 1][self.w * 2 - 4] = 198
             self.tiles[door_h * 2 + 1][self.w * 2 - 3] = 199
             self.tiles[door_h * 2 + 1][self.w * 2 - 2] = 78
+            
+        # close doors:
+        if 'N' not in self.doors:
+            self.layout.append({'id': 0, 'name': 'wall', 'x': 360, 'y': 48,  
+                                'width': 48, 'height': 48})
+        if 'S' not in self.doors:
+            self.layout.append({'id': 0, 'name': 'wall', 'x': 360, 'y': 480,  
+                                'width': 48, 'height': 48})
+        if 'W' not in self.doors:
+            self.layout.append({'id': 0, 'name': 'wall', 'x': 48, 'y': 264,  
+                                'width': 48, 'height': 48})   
+        if 'E' not in self.doors:
+            self.layout.append({'id': 0, 'name': 'wall', 'x': 672, 'y': 264,  
+                                'width': 48, 'height': 48})
 
-
-    def buildInterior(self):
-        # in the room
-        w = (self.w - 2)
-        h = (self.h - 2)
-        
-        
-        door_w = self.w // 2
-        door_h = self.h // 2
-        # floor tile index
-        #floor = 4
-        for i in range(4, h - 2):
-            for j in range(4, w - 2):
-                if randint(0, 100) <= 20 and (i != door_h and i != door_h - 1 
-                              and j != door_w and j != door_w - 1): 
-                    self.layout[i][j] = 2
-                    
-                    # tiles
-                    self.tiles[i * 2][j * 2] = 2
-                    self.tiles[i * 2][j * 2 + 1] = 3
-                    self.tiles[i * 2 + 1][j * 2] = 22
-                    self.tiles[i * 2 + 1][j * 2 + 1] = 23
-                else:
-                    self.layout[i][j] = 0  
-
-                    
-                    
+                   
 
 class Dungeon():
     def __init__(self, game, size):
@@ -374,8 +306,6 @@ class Dungeon():
                     
                     # re-build the rooms after changes
                     room.build()
-                    # set the inner layout of the room
-                    room.buildInterior()
 
 
     def floodFill(self):
@@ -423,7 +353,7 @@ class Dungeon():
         # mini map size
         w = 59
         h = 39
-        margin = 4 * st.GLOBAL_SCALE
+        #margin = 4 * st.GLOBAL_SCALE
 
         self.map_img = pg.Surface((w, h), flags=pg.SRCALPHA)
         self.map_img.fill(st.BLACK)
