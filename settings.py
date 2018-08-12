@@ -14,7 +14,7 @@ HEIGHT = 2 * TILESIZE_SMALL * TILES_H + GUI_HEIGHT
 
 # ingame settings
 DUNGEON_SIZE = (10, 10)
-SCROLLSPEED = int(2 * GLOBAL_SCALE) # TOO FAST FOR SMALL SCALES!
+SCROLLSPEED = int(4 * GLOBAL_SCALE) # TOO FAST FOR SMALL SCALES!
 SCROLLSPEED_MENU = 3 * GLOBAL_SCALE
 FPS = 60
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
@@ -32,15 +32,15 @@ PLAYER_HP_MAX = 14.0
 
 # possible rooms for picking
 ROOMS = {
-        'N': ['NS', 'NS', 'NS', 'NS', 'S', 'S', 'S', 'WS', 'ES', 'SWE', 'NSW', 'NSE'],
-        'W': ['WE', 'WE', 'WE', 'WE', 'E', 'E', 'E', 'ES', 'EN', 'SWE', 'NSE', 'NWE'],
-        'E': ['WE', 'WE', 'WE', 'WE', 'W', 'W', 'W', 'WS', 'WN', 'SWE', 'NSW', 'NWE'],
-        'S': ['NS', 'NS', 'NS', 'NS', 'N', 'N', 'N', 'WN', 'EN', 'NSE', 'NSW', 'NWE']
-        }
+    'N': ['NS', 'NS', 'NS', 'NS', 'S', 'S', 'S', 'WS', 'ES', 'SWE', 'NSW', 'NSE'],
+    'W': ['WE', 'WE', 'WE', 'WE', 'E', 'E', 'E', 'ES', 'EN', 'SWE', 'NSE', 'NWE'],
+    'E': ['WE', 'WE', 'WE', 'WE', 'W', 'W', 'W', 'WS', 'WN', 'SWE', 'NSW', 'NWE'],
+    'S': ['NS', 'NS', 'NS', 'NS', 'N', 'N', 'N', 'WN', 'EN', 'NSE', 'NSW', 'NWE']
+    }
 
 # list of tmx file numbers to pick from
 #TILEMAP_FILES = [i for i in range(1, 8)]
-TILEMAP_FILES = [1, 2, 4, 5, 7]
+TILEMAP_FILES = [9]
 
 
 # default colors

@@ -16,8 +16,19 @@ LEFT = (-1, 0)
 RIGHT = (1, 0)
 
 
-def export_globals():
-    return globals()
+exported_globals = globals()
+
+
+class SpriteFactory():  
+    def create(game, data):
+        d = data
+        g = game
+        # takes a dictionary of sprite properties
+        name = d['name'].capitalize()
+        #instantiate the sprite 
+        exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+                     (d['width'], d['height']))
+        
 
 
 class saveObject():
@@ -46,8 +57,10 @@ class saveObject():
 
 class Player(pg.sprite.Sprite):
     def __init__(self, game,  pos):
-        self.groups = game.all_sprites
-        pg.sprite.Sprite.__init__(self, self.groups)
+        self.group = game.all_sprites
+        pg.sprite.Sprite.__init__(self)
+        self.layer = 10
+        self.group.add(self, layer=self.layer)
         self.game = game
 
         # images for animation
@@ -214,10 +227,6 @@ class Player(pg.sprite.Sprite):
         self.hp = max(0, min(self.hp, self.max_hp))
 
 
-    def draw(self):
-        self.game.screen.blit(self.image, self.rect.topleft)
-
-
     def animate(self):
         now = pg.time.get_ticks()
 
@@ -263,33 +272,42 @@ class Player(pg.sprite.Sprite):
 
 
 class Solid(pg.sprite.Sprite):
-    def __init__(self, game, pos, size):
-        self.groups = game.walls, game.all_sprites
-        pg.sprite.Sprite.__init__(self, self.groups)
-        self.game = game
-        self.bb_width, self.bb_height = size
-        self.rect = pg.Rect(pos, (self.bb_width, self.bb_height))
+    def __init__(self):
+        self.groups = self.game.walls, self.game.all_sprites
+        self.layer = 1
+        pg.sprite.Sprite.__init__(self)
+        for g in self.groups:
+            g.add(self, layer=self.layer)
+        self.bb_width, self.bb_height = self.size
+        self.rect = pg.Rect(self.pos, (self.bb_width, self.bb_height))
         self.hit_rect = self.rect
+
 
     def update(self):
         # not used right now
         pass
-
-    def draw(self):
-        if self.image:
-            self.game.screen.blit(self.image, self.rect.topleft)
+        
             
 
 class Wall(Solid):
     def __init__(self, game, pos, size):
-        super().__init__(game, pos, size)
-        self.image = None
+        self.game = game
+        self.pos = vec(pos)
+        self.size = size
+        self.image = pg.Surface(size, pg.SRCALPHA)
+        self.image.fill((0, 0, 0, 0))
+        super().__init__()
+        
         
         
 class Block(Solid):
     def __init__(self, game, pos, size):
-        super().__init__(game, pos, size)
+        self.game = game
+        self.pos = vec(pos)
+        self.size = size
         self.image = fn.getSubimg(self.game.tileset_image, 16, 16, (16, 0))
+        super().__init__()
+        
             
 
 
@@ -400,12 +418,9 @@ class Inventory(pg.sprite.Sprite):
     def move_cursor(self):
         key = self.game.key_down
         # arrow keys
-        move_x = (key == pg.K_RIGHT) - (key == pg.K_LEFT)
-        move_y = (key == pg.K_DOWN) - (key == pg.K_UP)
-        # WASD 
-        move_x = (key == pg.K_d) - (key == pg.K_a)
-        move_y = (key == pg.K_s) - (key == pg.K_w)
-        
+        move_x = (key == pg.K_RIGHT or key == pg.K_d) - (key == pg.K_LEFT or key == pg.K_a)
+        move_y = (key == pg.K_DOWN or key == pg.K_s) - (key == pg.K_UP or key == pg.K_w)
+
         self.cursor_pos.x += move_x * 24 * st.GLOBAL_SCALE
         self.cursor_pos.y += move_y * 24 * st.GLOBAL_SCALE
         
@@ -422,8 +437,10 @@ class Inventory(pg.sprite.Sprite):
 
 class Sword(pg.sprite.Sprite):
     def __init__(self, game, player):
-        self.groups = game.all_sprites
-        pg.sprite.Sprite.__init__(self, self.groups)
+        self.group = game.all_sprites
+        self.layer = player.layer
+        pg.sprite.Sprite.__init__(self)
+        self.group.add(self, layer=self.layer)
         self.player = player
         self.game = game
         self.image = fn.loadImage('sword.png')
@@ -472,17 +489,19 @@ class Sword(pg.sprite.Sprite):
 # ----------------------- ENEMIES --------------------------
         
 class Enemy(pg.sprite.Sprite):
-    def __init__(self, game, pos, size):
-        self.groups = game.all_sprites, game.enemies
-        pg.sprite.Sprite.__init__(self, self.groups)
-        self.game = game
+    def __init__(self):
+        self.groups = self.game.all_sprites, self.game.enemies
+        self.layer = self.game.player.layer + 1
+        pg.sprite.Sprite.__init__(self)
+        for g in self.groups:
+            g.add(self, layer=self.layer)
 
         #self.walk_frames = images
         self.image = self.walk_frames[0]
         
         self.rect = self.image.get_rect()
-        self.pos = vec(pos)
-        self.rect.center = pos
+        #self.pos = vec(pos)
+        self.rect.center = self.pos
         self.hit_rect = self.rect
         self.hit_rect.center = self.rect.center
         self.vel = vec(0, 0)
@@ -497,6 +516,7 @@ class Enemy(pg.sprite.Sprite):
         self.anim_update = 0
         self.walk_update = 0
         self.current_frame = 0
+        self.anim_speed = 300
         
         # testing a save function
         self.saveGame = self.game.saveGame
@@ -547,6 +567,14 @@ class Enemy(pg.sprite.Sprite):
         
         
     def update(self):
+        # change the drawing layer in relation to the player
+        if self.hit_rect.top > self.game.player.hit_rect.top:
+            for g in self.groups:
+                g.change_layer(self, self.game.player.layer + 1)
+        else:
+            for g in self.groups:
+                g.change_layer(self, self.game.player.layer - 1)
+       
         self.move()
         
         self.animate()
@@ -563,30 +591,62 @@ class Enemy(pg.sprite.Sprite):
         fn.collide_with_walls(self, self.game.walls, 'x')
         self.hit_rect.centery = self.pos.y
         fn.collide_with_walls(self, self.game.walls, 'y')
+        
+        # enemies have to stay in the room
+        self.pos.x = fn.clamp(self.pos.x, st.TILESIZE * 2, 
+                              st.WIDTH - st.TILESIZE * 2)
+        self.pos.y = fn.clamp(self.pos.y, st.GUI_HEIGHT + st.TILESIZE * 2, 
+                              st.HEIGHT - st.TILESIZE * 2)
 
         # position the hitrect at the bottom of the image
-        self.rect.midbottom = self.hit_rect.midbottom    
+        self.rect.midbottom = self.hit_rect.midbottom
         
     
     def animate(self):
         now = pg.time.get_ticks()
 
         if self.state == 'WALKING':
-            if now - self.anim_update > 300:
+            if now - self.anim_update > self.anim_speed:
                 self.anim_update = now
                 self.current_frame = (self.current_frame + 1) % len(
                                       self.walk_frames)
                 self.image = self.walk_frames[self.current_frame]
             
-            
-    def draw(self):
-        self.game.screen.blit(self.image, self.rect.topleft)
-        
-
 
 class Skeleton(Enemy):
-    def __init__(self, game, pos, size):
-        self.walk_frames = game.enemy_image_dict['skeleton']
-        super().__init__(game, pos, size)
+    def __init__(self, game, pos, *args):
+        self.game = game
+        self.pos = vec(pos)
+        self.walk_frames = self.game.enemy_image_dict['skeleton']
+        super().__init__()
+        
+        self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
+                                int(st.TILESIZE * 0.6))
+
+
+
+class Slime(Enemy):
+    def __init__(self, game, pos, *args):
+        self.game = game
+        self.pos = vec(pos)
+        self.walk_frames = self.game.enemy_image_dict['slime']
+        super().__init__()
+        
+        self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
+                                int(st.TILESIZE * 0.6))
+        
+        
+class Bat(Enemy):
+    def __init__(self, game, pos, *args):
+        self.game = game
+        self.pos = vec(pos)
+        self.walk_frames = self.game.enemy_image_dict['bat']
+        super().__init__()
+        
+        self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
+                                int(st.TILESIZE * 0.6))
+        
+        self.anim_speed = 150
+
         
 
