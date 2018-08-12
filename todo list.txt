@@ -1,10 +1,18 @@
-- mini map (siehe mockup)
+* = done
+
+*- mini map (siehe mockup)
 - schwert animation
 - Gegner
-- Items auf A und B
+- Items auf A und B legen
 - inventar layout
-- neues tileset (8x8 tiles)
-- st.TILESIZE und st.TILESIZE_SMALL
+*- neues tileset (8x8 tiles)
+*- st.TILESIZE und st.TILESIZE_SMALL
 - start/game over screen
-- Room transitions kein while loop, sondern animation
-- tileRoom function löscht keine objecte, sondern setzt welche wo keine türen sind
+*- Room transitions kein while loop, sondern animation
+*- tileRoom function löscht keine objecte, sondern setzt welche wo keine türen sind
+*- draw layers
+- bei horizontalem Raumwechsel clipping fehler beheben
+- Sprite factory mit **kwargs
+*- Die gegner pos restricten 
+- knockback
+- loch zum reinfallen

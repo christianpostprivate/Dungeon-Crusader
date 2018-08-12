@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="2018.03.21" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="8" tileheight="8" infinite="0" nextobjectid="44">
+<map version="1.0" tiledversion="2018.03.21" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="8" tileheight="8" infinite="0" nextobjectid="48">
  <tileset firstgid="1" source="../images/tileset_red_8x8.tsx"/>
  <layer name="tiles" width="32" height="24">
   <data encoding="csv">

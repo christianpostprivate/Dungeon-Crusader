@@ -116,7 +116,7 @@ class Room():
             self.tiles[door_h * 2 + 1][self.w * 2 - 3] = 199
             self.tiles[door_h * 2 + 1][self.w * 2 - 2] = 78
             
-        # close doors:
+        # close doors with wall objects:
         if 'N' not in self.doors:
             self.layout.append({'id': 0, 'name': 'wall', 'x': 360, 'y': 48,  
                                 'width': 48, 'height': 48})
@@ -347,13 +347,11 @@ class Dungeon():
         # blit a mini-map image onto the screen
         
         # room image size
-        #size = (int(3.5 * st.GLOBAL_SCALE), int(3.5 * st.GLOBAL_SCALE / 2))
         size = (6, 4)
         
         # mini map size
         w = 59
         h = 39
-        #margin = 4 * st.GLOBAL_SCALE
 
         self.map_img = pg.Surface((w, h), flags=pg.SRCALPHA)
         self.map_img.fill(st.BLACK)

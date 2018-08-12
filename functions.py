@@ -12,6 +12,15 @@ vec = pg.math.Vector2
 def clamp(var, lower, upper):
     # restrains a variable's value between two values
     return max(lower, min(var, upper))
+
+
+def remap(n, start1, stop1, start2, stop2):
+    # https://p5js.org/reference/#/p5/map
+    newval = (n - start1) / (stop1 - start1) * (stop2 - start2) + start2
+    if (start2 < stop2):
+        return clamp(newval, start2, stop2)
+    else:
+        return clamp(newval, stop2, start2)
     
 
 def collide_hit_rect(one, two):
@@ -51,7 +60,7 @@ def screenWrap(player, dungeon):
     #if they do, set their new position based on where they went
     index = list(dungeon.room_index)
     direction = ''
-    new_pos = vec(player.hit_rect.center)
+    new_pos = vec(player.rect.center)
     if player.rect.left < st.TILESIZE:
         direction = 'LEFT'
         player.vel = vec(0, 0)
@@ -78,7 +87,7 @@ def screenWrap(player, dungeon):
         traceback.print_exc()
 
 
-def transitRoomNEW(game, dungeon):
+def transitRoom(game, dungeon):
     index = dungeon.room_index
     
     # remove all sprite from the previous room
@@ -87,7 +96,7 @@ def transitRoomNEW(game, dungeon):
             sprite.kill()
 
     data = dungeon.rooms[index[0]][index[1]].layout    
-    objects_from_data2(game, data)
+    objects_from_data(game, data)
     
     dungeon.rooms[index[0]][index[1]].visited = True
     
@@ -172,6 +181,7 @@ def tileImageScale(filename, size_w, size_h, scale=1,
 def tileRoom(game, tileset, index):
     image = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT))
     data = game.dungeon.rooms[index[0]][index[1]].tiles
+    
     for i in range(len(data)):
         for j in range(len(data[i])):
             x = j * st.TILESIZE_SMALL
@@ -232,7 +242,7 @@ def tileset_from_tmx(filename):
     for i in range(len(array)):
         for j in range(len(array[i])):
             array[i][j] = int(array[i][j]) - 1
-        
+    
     return array    
 
 
@@ -254,24 +264,12 @@ def objects_from_tmx(filename):
                 pass
     
     return objects
-
-
-def objects_from_data(game, data):
-    for o in data:
-        if o['name'] == 'wall':           
-            spr.Wall(game, (o['x'], o['y'] +  st.GUI_HEIGHT),
-                     (o['width'], o['height']))
-        elif o['name'] == 'block':
-            spr.Block(game, (o['x'], o['y'] + st.GUI_HEIGHT), 
-                     (o['width'], o['height']))
             
 
-def objects_from_data2(game, data):
-    for o in data:
+def objects_from_data(game, data):
+    for d in data:
         try:
-            name = o['name'].capitalize()
-            spr.export_globals()[name](game, (o['x'], o['y'] +  st.GUI_HEIGHT),
-                     (o['width'], o['height']))
+            spr.SpriteFactory.create(game, d)
         except Exception:
-            traceback.print_exc()
-            print('cannot make object:', o['name'])
+            #traceback.print_exc()
+            pass

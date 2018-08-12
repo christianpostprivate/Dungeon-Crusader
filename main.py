@@ -23,8 +23,8 @@ class Game():
         pg.mixer.init()
         pg.init()
 
-        pg.key.set_repeat(150, 150)
-        pg.mouse.set_visible(False)
+        pg.key.set_repeat(10, 150)
+        pg.mouse.set_visible(True)
 
         self.screen = pg.display.set_mode((st.WIDTH, st.HEIGHT))
 
@@ -39,6 +39,7 @@ class Game():
 
         self.key_down = None
         self.state = 'GAME'
+        self.in_transition = False
 
         self.saveGame = spr.saveObject()
         self.saveGame.load()
@@ -70,7 +71,9 @@ class Game():
                                 }
         
         self.enemy_image_dict = {
-            'skeleton': fn.img_list_from_strip('skeleton.png', 16, 16, 0, 2)
+            'skeleton': fn.img_list_from_strip('skeleton_strip.png', 16, 16, 0, 2),
+            'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 3),
+            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 2)
             }
 
 
@@ -104,17 +107,12 @@ class Game():
 
 
     def new(self):
-        #print('width', st.WIDTH / st.GLOBAL_SCALE, 'height', 
-              #st.HEIGHT / st.GLOBAL_SCALE)
-        #print('tiles_w', st.TILES_W)
-
-
         # start a new game
         # initialise sprite groups
-        self.all_sprites = pg.sprite.Group()
-        self.walls = pg.sprite.Group()
-        self.gui = pg.sprite.Group()
-        self.enemies = pg.sprite.Group()
+        self.all_sprites = pg.sprite.LayeredUpdates()
+        self.walls = pg.sprite.LayeredUpdates()
+        self.gui = pg.sprite.LayeredUpdates()
+        self.enemies = pg.sprite.LayeredUpdates()
 
         # instantiate dungeon
         self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
@@ -133,17 +131,13 @@ class Game():
             self.loadSavefile()
 
         # spawn the new objects (invisible)
-        fn.transitRoomNEW(self, self.dungeon)
+        fn.transitRoom(self, self.dungeon)
 
         # create a background image from the tileset for the current room
         self.background = fn.tileRoom(self,
                                       self.tileset_dict[self.dungeon.tileset],
                                       self.dungeon.room_index)
-
-        # TESTING ENEMIES
-        #images = fn.img_list_from_strip('skeleton.png', 16, 16, 0, 2)
-        #enemy1 = spr.Enemy(self, (300, 500), images)
-        #enemy2 = spr.Enemy(self, (300, 500), images)
+        
 
         self.run()
 
@@ -163,7 +157,7 @@ class Game():
 
     def update(self):
         if self.debug:
-            self.caption = str(self.player.state) + ' ' + str(self.player.attack_update)
+            self.caption = str(self.in_transition) + ' ' + str(self.player.attack_update)
         else:
             self.caption = st.TITLE
         pg.display.set_caption(self.caption)
@@ -184,14 +178,18 @@ class Game():
                     
             self.inventory.update()
             # check for room transitions on screen exit (every frame)
-            direction, new_room, new_pos = fn.screenWrap(self.player, self.dungeon)
+            self.direction, self.new_room, self.new_pos = fn.screenWrap(
+                    self.player, self.dungeon)
 
-            if new_room != self.dungeon.room_index:
-                self.dungeon.room_index = new_room
-                self.RoomTransition(new_pos, direction)
+            if self.new_room != self.dungeon.room_index:
+                self.dungeon.room_index = self.new_room
+                self.state = 'TRANSITION'
                 
         elif self.state == 'MENU':
             self.inventory.update()
+            
+        elif self.state == 'TRANSITION':
+            self.RoomTransition(self.new_pos, self.direction)
 
 
     def events(self):
@@ -225,28 +223,26 @@ class Game():
 
 
     def draw(self):
-        self.screen.blit(self.background, (0, st.GUI_HEIGHT))
+        if self.state != 'TRANSITION':
+            # draw the background (tilemap)
+            self.screen.blit(self.background, (0, st.GUI_HEIGHT))
+            # draw the sprites
+            self.all_sprites.draw(self.screen)
+            
+            # draw hitboxes in debug mode
+            if self.debug:
+                for sprite in self.all_sprites:
+                    pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
+    
+            # draw the inventory
+            self.drawGUI()
 
-        for sprite in self.all_sprites:
-            sprite.draw()
-
-        if self.debug:
-            for sprite in self.all_sprites:
-                pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
-            for sprite in self.walls:
-                pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
-
-        self.drawGUI()
-
-        pg.display.flip()
+        pg.display.update()
 
 
     def drawGUI(self):
-        # Interface (Items, HUD, map)
-        
-        if self.dungeon.done:
-            self.inventory.map_img = self.dungeon.blitRooms()
-
+        # Interface (Items, HUD, map, textboxes etc)
+        self.inventory.map_img = self.dungeon.blitRooms()
         self.inventory.draw()
 
 
@@ -257,64 +253,66 @@ class Game():
         room to the next by sliding both room backgrounds in the respective 
         direction
         '''
-        # store the old background image temporarily
-        old_background = self.background
-        # build the new room
-        self.background = fn.tileRoom(self,
-                                      self.tileset_dict[self.dungeon.tileset],
-                                      self.dungeon.room_index)
-
-        # move the player to the other side of the screen
-        self.player.pos = new_pos
-        self.player.rect.center = self.player.pos
-        self.player.hit_rect.bottom = self.player.rect.bottom
-
-        # scroll the new and old background
-        # start positions for the new bg are based on the direction the
-        # player is moving
-        start_positions = {
-                          'UP': vec(0, - (st.HEIGHT - st.GUI_HEIGHT * 2)),
-                          'DOWN': vec(0, st.HEIGHT),
-                          'LEFT': vec(- st.WIDTH, st.GUI_HEIGHT),
-                          'RIGHT': vec(st.WIDTH, st.GUI_HEIGHT)
-                          }
-
-        pos = start_positions[direction]
-        # pos2 is the old bg's position that gets pushed out of the screen
-        pos2 = vec(0, st.GUI_HEIGHT)
-
-        while pos != (0, st.GUI_HEIGHT):
-            # moves the 2 room backrounds until the new background is at (0,0)
-            # the pos has to be restrained to prevent moving past (0,0) and
-            # stay forever in the loop
-            scroll_speed = st.SCROLLSPEED
-            if direction == 'UP':
-                pos.y += scroll_speed
-                pos2.y += scroll_speed
-                pos.y = min(st.GUI_HEIGHT, pos.y)
-            elif direction == 'DOWN':
-                pos.y -= scroll_speed
-                pos2.y -= scroll_speed
-                pos.y = max(st.GUI_HEIGHT, pos.y)
-            elif direction == 'LEFT':
-                pos.x += scroll_speed
-                pos2.x += scroll_speed
-                pos.x = min(0, pos.x)
-            elif direction == 'RIGHT':
-                pos.x -= scroll_speed
-                pos2.x -= scroll_speed
-                pos.x = max(0, pos.x)
-
-            self.screen.blit(old_background, pos2)
-            self.screen.blit(self.background, pos)    
-            self.drawGUI()
-
-            pg.display.flip()
-
-        # put wall objects in the room after transition
-        fn.transitRoomNEW(self, self.dungeon)
-
-
+        if not self.in_transition:
+            # store the old background image temporarily
+            self.old_background = self.background
+            # build the new room
+            self.background = fn.tileRoom(self,
+                                          self.tileset_dict[self.dungeon.tileset],
+                                          self.dungeon.room_index)
+    
+            # move the player to the other side of the screen
+            #print('old', self.player.pos)
+            self.player.pos = new_pos
+            self.player.hit_rect.center = new_pos
+            self.player.rect.bottom = self.player.hit_rect.bottom
+            #print('new', self.player.pos)
+            # scroll the new and old background
+            # start positions for the new bg are based on the direction the
+            # player is moving
+            start_positions = {
+                              'UP': vec(0, - (st.HEIGHT - st.GUI_HEIGHT * 2)),
+                              'DOWN': vec(0, st.HEIGHT),
+                              'LEFT': vec(- st.WIDTH, st.GUI_HEIGHT),
+                              'RIGHT': vec(st.WIDTH, st.GUI_HEIGHT)
+                              }
+    
+            self.bg_pos1 = start_positions[direction]
+            # pos2 is the old bg's position that gets pushed out of the screen
+            self.bg_pos2 = vec(0, st.GUI_HEIGHT)
+            self.in_transition = True
+            
+        else:    
+            if self.bg_pos1 != (0, st.GUI_HEIGHT):
+                # moves the 2 room backrounds until the new background is at (0,0)
+                # the pos has to be restrained to prevent moving past (0,0) and
+                # stay forever in the loop
+                scroll_speed = st.SCROLLSPEED
+                if direction == 'UP':
+                    self.bg_pos1.y += scroll_speed
+                    self.bg_pos2.y += scroll_speed
+                    self.bg_pos1.y = min(st.GUI_HEIGHT, self.bg_pos1.y)
+                elif direction == 'DOWN':
+                    self.bg_pos1.y -= scroll_speed
+                    self.bg_pos2.y -= scroll_speed
+                    self.bg_pos1.y = max(st.GUI_HEIGHT, self.bg_pos1.y)
+                elif direction == 'LEFT':
+                    self.bg_pos1.x += scroll_speed
+                    self.bg_pos2.x += scroll_speed
+                    self.bg_pos1.x = min(0, self.bg_pos1.x)
+                elif direction == 'RIGHT':
+                    self.bg_pos1.x -= scroll_speed
+                    self.bg_pos2.x -= scroll_speed
+                    self.bg_pos1.x = max(0, self.bg_pos1.x)
+    
+                self.screen.blit(self.old_background, self.bg_pos2)
+                self.screen.blit(self.background, self.bg_pos1)    
+                self.drawGUI()
+            else:
+                # put wall objects in the room after transition
+                fn.transitRoom(self, self.dungeon)
+                self.in_transition = False
+                self.state = 'GAME'
 
 g = Game()
 try:
