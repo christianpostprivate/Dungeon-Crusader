@@ -8,7 +8,7 @@ import functions as fn
 vec = pg.math.Vector2
 
 
-class Room():
+class Room:
     def __init__(self, game, doors, type_='default'):
         self.game = game
         self.doors = doors
@@ -29,9 +29,9 @@ class Room():
    
      
     def build(self):       
-        for key in self.game.room_image_dict:
+        for key in self.game.imageLoader.room_image_dict:
             if fn.compare(self.doors, key):
-                self.image = self.game.room_image_dict[key]
+                self.image = self.game.imageLoader.room_image_dict[key]
         
         self.tileRoom()
         
@@ -132,7 +132,7 @@ class Room():
 
                    
 
-class Dungeon():
+class Dungeon:
     def __init__(self, game, size):
         self.size = vec(size)
         self.game = game
@@ -155,7 +155,7 @@ class Dungeon():
         
         self.saveGame = self.game.saveGame
         
-        self.tileset = choice(self.game.tileset_names)
+        self.tileset = choice(self.game.imageLoader.tileset_names)
         
         
     def saveSelf(self):   
@@ -355,6 +355,8 @@ class Dungeon():
 
         self.map_img = pg.Surface((w, h), flags=pg.SRCALPHA)
         self.map_img.fill(st.BLACK)
+        
+        imgs = self.game.imageLoader.room_img
              
         for i in range(len(self.rooms)):
             for j in range(len(self.rooms[i])):
@@ -365,15 +367,15 @@ class Dungeon():
                     self.map_img.blit(room.image, pos)
                     if room.type == 'start':
                         # draw a square representing the starting room
-                        self.map_img.blit(self.game.room_images[17], pos)
+                        self.map_img.blit(imgs[17], pos)
                 else:
-                    self.map_img.blit(self.game.room_images[0], pos)
+                    self.map_img.blit(imgs[0], pos)
 
         # animated red square representing the player
         now = pg.time.get_ticks()
         pos2 = (self.room_index[1] * size[0] - 1, 
                 self.room_index[0] * size[1] - 1)
-        player_imgs = [self.game.room_images[18], self.game.room_images[19]]
+        player_imgs = [imgs[18], imgs[19]]
         
         if now - self.last_update > 500:
                 self.last_update = now

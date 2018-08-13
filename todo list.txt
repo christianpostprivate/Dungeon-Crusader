@@ -16,3 +16,6 @@
 *- Die gegner pos restricten 
 - knockback
 - loch zum reinfallen
+*- spawn point an den anfang des Raumes setzen
+*- save folder
+

@@ -96,7 +96,12 @@ def transitRoom(game, dungeon):
             sprite.kill()
 
     data = dungeon.rooms[index[0]][index[1]].layout    
-    objects_from_data(game, data)
+    for d in data:
+        try:
+            spr.create(game, d)
+        except Exception:
+            traceback.print_exc()
+            pass
     
     dungeon.rooms[index[0]][index[1]].visited = True
     
@@ -264,12 +269,3 @@ def objects_from_tmx(filename):
                 pass
     
     return objects
-            
-
-def objects_from_data(game, data):
-    for d in data:
-        try:
-            spr.SpriteFactory.create(game, d)
-        except Exception:
-            #traceback.print_exc()
-            pass

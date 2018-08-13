@@ -18,25 +18,25 @@ RIGHT = (1, 0)
 
 exported_globals = globals()
 
-
-class SpriteFactory():  
-    def create(game, data):
-        d = data
-        g = game
-        # takes a dictionary of sprite properties
-        name = d['name'].capitalize()
-        #instantiate the sprite 
-        exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
-                     (d['width'], d['height']))
+ 
+def create(game, data):
+    d = data
+    g = game
+    # takes a dictionary of sprite properties
+    name = d['name'].capitalize()
+    #instantiate the sprite 
+    exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+                 (d['width'], d['height']))
         
 
 
-class saveObject():
+class saveObject:
     def __init__(self):
         self.data = {}
         self.filename = 'savefile.dat'
         directory = path.dirname(__file__)
-        self.filename = path.join(directory, self.filename)
+        save_folder = path.join(directory, 'saves')
+        self.filename = path.join(save_folder, self.filename)
 
 
     def save(self):
@@ -52,7 +52,77 @@ class saveObject():
         except Exception:
             traceback.print_exc()
             return
+        
+        
+        
+class ImageLoader:
+    '''
+    A class that loads all images at the start of the game
+    '''
+    def __init__(self, game):
+        self.game = game
+        
+        self.tileset_names = ['tileset_red_8x8.png']
 
+    
+    def load(self):
+        self.player_img = {
+            'walk': fn.img_list_from_strip('knight_strip.png', 16, 16,
+                                                0, 10),
+            'attack': fn.img_list_from_strip('knight_attack.png', 16, 16,
+                                                0, 4)
+            }
+        
+        self.tileset_dict = {key: fn.tileImageScale(key, 8, 8, scale=True) 
+                                for key in self.tileset_names}
+        # set the image for testing
+        self.tileset_image = fn.loadImage(self.tileset_names[0], 1)
+        self.solid_img ={
+            'block': fn.getSubimg(self.tileset_image, 16, 16, (16, 0))
+            }
+        
+        self.room_img = fn.img_list_from_strip('minimap_strip_7x5.png',
+                                                  7, 5, 0, 20, False)
+        
+        self.room_image_dict = {
+                                'empty': self.room_img[0],
+                                'NSWE': self.room_img[1],
+                                'N': self.room_img[3],
+                                'E': self.room_img[4],
+                                'S': self.room_img[5],
+                                'W': self.room_img[6],
+                                'NE': self.room_img[7],
+                                'NS': self.room_img[8],
+                                'NW': self.room_img[9],
+                                'SE': self.room_img[10],
+                                'WE': self.room_img[11],
+                                'SW': self.room_img[12],
+                                'NWE': self.room_img[13],
+                                'NES': self.room_img[14],
+                                'SWE': self.room_img[15],
+                                'NWS': self.room_img[16]
+                                }
+        
+        self.enemy_img = {
+            'skeleton': fn.img_list_from_strip('skeleton_strip.png', 16, 16, 
+                                               0, 2),
+            'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 3),
+            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 2)
+            }
+        
+        self.item_img = {
+            'sword': fn.loadImage('sword.png')
+            }
+        
+        self.gui_img = {
+            'background': fn.loadImage('inventory_bg.png'),
+            'cursor': [fn.loadImage('cursor.png'),
+                          pg.Surface((16, 16)).fill(st.TRANS)],
+            'health': fn.loadImage('health_string.png'),
+            'hearts': fn.img_list_from_strip('hearts_strip.png',8, 8, 
+                                               0, 6, scale=False)
+            }
+        
 
 
 class Player(pg.sprite.Sprite):
@@ -64,8 +134,8 @@ class Player(pg.sprite.Sprite):
         self.game = game
 
         # images for animation
-        self.image_strip = fn.img_list_from_strip('knight_strip.png', 16, 16,
-                                                    0, 10)
+        self.image_strip = self.game.imageLoader.player_img['walk']
+        
         self.walk_frames_l = [self.image_strip[6], self.image_strip[7]]
         self.walk_frames_r = [self.image_strip[2], self.image_strip[3]]
         self.walk_frames_u = [self.image_strip[4], self.image_strip[5]]
@@ -75,8 +145,7 @@ class Player(pg.sprite.Sprite):
         self.idle_frames_u = [self.image_strip[9]]
         self.idle_frames_d = [self.image_strip[8]]
 
-        self.attack_strip = fn.img_list_from_strip('knight_attack.png', 16, 16,
-                                                    0, 4)
+        self.attack_strip = self.game.imageLoader.player_img['attack']
 
         self.attack_frames_l = [self.attack_strip[3]]
         self.attack_frames_r = [self.attack_strip[2]]
@@ -87,16 +156,21 @@ class Player(pg.sprite.Sprite):
 
         self.rect = self.image.get_rect()
         self.pos = vec(pos)
+        # spawning position in the room
+        self.spawn_pos = vec(pos)
         self.rect.center = pos
         self.hit_rect = st.PLAYER_HIT_RECT
         self.hit_rect.center = self.rect.center
         self.vel = vec(0, 0)
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
+        self.lastimage = None
+        self.friction = st.PLAYER_FRICTION
+
 
         self.state = 'IDLE'
         self.max_hp = st.PLAYER_HP_START
-        self.hp = 3.25
+        self.hp = 3.0
 
         self.itemA = None
         self.itemB = None
@@ -105,8 +179,7 @@ class Player(pg.sprite.Sprite):
 
         self.anim_update = 0
         self.attack_update = 0
-        self.current_frame = 0
-        
+        self.current_frame = 0        
 
         # testing a save function
         self.saveGame = self.game.saveGame
@@ -138,53 +211,40 @@ class Player(pg.sprite.Sprite):
 
 
     def get_keys(self):
-        if not self.state == 'ATTACK':
-            # acceleration
-            self.acc = vec(1, 1) * st.PLAYER_ACC
-
-            self.friction = 0.1
-
-
+        if self.state == 'IDLE' or self.state == 'WALKING':
             keys = pg.key.get_pressed()
-            # add acceleration to velocity
-            if keys[pg.K_LEFT] or keys[pg.K_a]:
-                self.vel.x -= self.acc.x
-                
+            
+            # set the movement vector based on key presses
+            move_x = ((keys[pg.K_RIGHT] or keys[pg.K_d]) -
+                     (keys[pg.K_LEFT] or keys[pg.K_a]))
+            move_y = ((keys[pg.K_DOWN] or keys[pg.K_s]) - 
+                      (keys[pg.K_UP] or  keys[pg.K_w]))
+            
+            self.acc = vec(move_x, move_y) * st.PLAYER_ACC
+            
+            # set image direction based on key pressed
+            if keys[pg.K_LEFT] or keys[pg.K_a]:        
                 self.dir = vec(LEFT)
                 self.lastdir = vec(LEFT)
 
-            if keys[pg.K_RIGHT] or keys[pg.K_d]:
-                self.vel.x += self.acc.x
-                
+            if keys[pg.K_RIGHT] or keys[pg.K_d]:              
                 self.dir = vec(RIGHT)
                 self.lastdir = vec(RIGHT)
 
             if keys[pg.K_UP] or keys[pg.K_w]:
-                self.vel.y -= self.acc.y
-
                 self.dir = vec(UP)
                 self.lastdir = vec(UP)
 
             if keys[pg.K_DOWN] or keys[pg.K_s]:
-                self.vel.y += self.acc.y
-
                 self.dir = vec(DOWN)
                 self.lastdir = vec(DOWN)
 
-            # apply friction
-            self.vel *= (1 - self.friction)
-
-            # cap speed at maximum
-            if self.vel.length() > st.PLAYER_MAXSPEED:
-                self.vel.scale_to_length(st.PLAYER_MAXSPEED)
-
+            # set the state to walking
+            self.state = 'WALKING'
             # stop the player from sliding infinitely
             if self.vel.length() < 0.1:
                 self.vel = vec(0, 0)
-
-            if self.vel.length() > 0.2:
-                self.state = 'WALKING'
-            else:
+                # if velocity is less than threshold, set state to idle
                 self.state = 'IDLE'
 
             if self.game.key_down == pg.K_SPACE:
@@ -197,6 +257,10 @@ class Player(pg.sprite.Sprite):
             if self.attack_update > 20:
                 self.attack_update = 0
                 self.state = 'IDLE'
+                
+        elif self.state == 'HITSTUN':
+            # can't receive input when stunned
+            pass
 
         # FOR TESTING
         if self.game.debug:
@@ -208,13 +272,25 @@ class Player(pg.sprite.Sprite):
 
 
     def update(self, others):
+        # get player input
         self.get_keys()
+        
+        # add acceleration to velocity
+        self.vel += self.acc
+        # apply friction
+        self.vel *= (1 - self.friction)
 
-        self.animate()
-
+        # limit velocity to maximum
+        if self.vel.length() > st.PLAYER_MAXSPEED:
+            self.vel.scale_to_length(st.PLAYER_MAXSPEED)
+              
+        # add velocity to position
+        self.pos += self.vel
+        self.acc *= 0
+        
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
-        self.pos += self.vel
+        # collision detection
         self.hit_rect.centerx = self.pos.x
         fn.collide_with_walls(self, self.game.walls, 'x')
         self.hit_rect.centery = self.pos.y
@@ -225,6 +301,9 @@ class Player(pg.sprite.Sprite):
         
         # restrain hp between 0 and max
         self.hp = max(0, min(self.hp, self.max_hp))
+        
+        # player animations
+        self.animate()
 
 
     def animate(self):
@@ -263,23 +342,42 @@ class Player(pg.sprite.Sprite):
                 self.image = self.attack_frames_d[0]
             elif self.lastdir == UP:
                 self.image = self.attack_frames_u[0]
+        
+        elif self.state == 'HITSTUN':
+            # flicker to indicate damage
+            try:
+                alpha = next(self.damage_alpha)
+                self.image = self.lastimage.copy()
+                self.image.fill((255, 255, 255, alpha), 
+                                special_flags=pg.BLEND_RGBA_MULT)
+            except:
+                self.state = 'IDLE'
 
 
     def attack(self):
         if not self.game.all_sprites.has(self.sword):
             self.sword = Sword(self.game, self)
+            
+    
+    def stun(self, time):
+        self.vel = vec(0, 0)
+        self.state = 'HITSTUN'
+        self.lastimage = self.image.copy()
+        self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
         
 
 
 class Solid(pg.sprite.Sprite):
+    '''
+    Container Class for all solid objects
+    '''
     def __init__(self):
         self.groups = self.game.walls, self.game.all_sprites
         self.layer = 1
         pg.sprite.Sprite.__init__(self)
         for g in self.groups:
             g.add(self, layer=self.layer)
-        self.bb_width, self.bb_height = self.size
-        self.rect = pg.Rect(self.pos, (self.bb_width, self.bb_height))
+        self.rect = pg.Rect(self.pos, self.size)
         self.hit_rect = self.rect
 
 
@@ -290,6 +388,9 @@ class Solid(pg.sprite.Sprite):
             
 
 class Wall(Solid):
+    '''
+    An invisible wall object with variable size
+    '''
     def __init__(self, game, pos, size):
         self.game = game
         self.pos = vec(pos)
@@ -301,15 +402,49 @@ class Wall(Solid):
         
         
 class Block(Solid):
+    '''
+    A solid block with an image, always same size
+    ''' 
     def __init__(self, game, pos, size):
         self.game = game
         self.pos = vec(pos)
         self.size = size
-        self.image = fn.getSubimg(self.game.tileset_image, 16, 16, (16, 0))
+        self.image = self.game.imageLoader.solid_img['block']
         super().__init__()
         
-            
+        
 
+class Hole(pg.sprite.Sprite):
+    '''
+    A hole that the player can fall into (and spawn at the entrance)
+    '''
+    def __init__(self, game, pos, size):
+        self.game = game
+        self.group = self.game.all_sprites
+        self.layer = 1
+        pg.sprite.Sprite.__init__(self)
+
+        self.group.add(self, layer=self.layer)
+            
+        self.pos = vec(pos)
+        self.size = size
+        self.image = pg.Surface(size, pg.SRCALPHA)
+        self.image.fill((0, 0, 0, 0))
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self.pos
+        self.hit_rect = self.rect
+        
+    
+    def update(self):
+        # detect collision
+        player = self.game.player
+        if fn.collide_hit_rect(player, self):
+            # TO DO: PLAYER GETS DRAWN SLOWLY TO THE CENTER
+            player.pos = vec(player.spawn_pos)
+            player.stun(3)
+            
+            
+# --------------- Inventory & Items -------------------------------------------
 
 class Inventory(pg.sprite.Sprite):
     def __init__(self, game):
@@ -329,18 +464,14 @@ class Inventory(pg.sprite.Sprite):
         self.map_img = None
 
         # inventory background
-        self.gui_img = fn.loadImage('inventory_bg.png')
-        self.cursor_images = [
-                              fn.loadImage('cursor.png'),
-                              pg.Surface((16, 16)).fill(st.TRANS)
-                              ]
+        self.gui_img = self.game.imageLoader.gui_img['background']      
+        self.cursor_images = self.game.imageLoader.gui_img['cursor']        
         self.cursor_pos = vec(24 * st.GLOBAL_SCALE, 40 * st.GLOBAL_SCALE)
         
         # "health" string
-        self.health_string = fn.loadImage('health_string.png')
+        self.health_string = self.game.imageLoader.gui_img['health']
         # images for the player health
-        self.heart_images = fn.img_list_from_strip('hearts_strip.png',8, 8, 
-                                                   0, 6, scale=False)
+        self.heart_images = self.game.imageLoader.gui_img['hearts']
         for i in range(len(self.heart_images)):
             self.heart_images[i] = pg.transform.scale(self.heart_images[i], 
                                   (8 * st.GLOBAL_SCALE, 8 * st.GLOBAL_SCALE))
@@ -417,12 +548,14 @@ class Inventory(pg.sprite.Sprite):
        
     def move_cursor(self):
         key = self.game.key_down
-        # arrow keys
-        move_x = (key == pg.K_RIGHT or key == pg.K_d) - (key == pg.K_LEFT or key == pg.K_a)
-        move_y = (key == pg.K_DOWN or key == pg.K_s) - (key == pg.K_UP or key == pg.K_w)
-
-        self.cursor_pos.x += move_x * 24 * st.GLOBAL_SCALE
-        self.cursor_pos.y += move_y * 24 * st.GLOBAL_SCALE
+        # set the movement vector based on key presses
+        move_x = (key == pg.K_RIGHT or key == pg.K_d) - (key == pg.K_LEFT or 
+                 key == pg.K_a)
+        move_y = (key == pg.K_DOWN or key == pg.K_s) - (key == pg.K_UP or 
+                 key == pg.K_w)
+        
+        # move the cursor
+        self.cursor_pos += vec(move_x, move_y) * 24 * st.GLOBAL_SCALE
         
         self.cursor_pos.x = fn.clamp(self.cursor_pos.x, 24 * st.GLOBAL_SCALE, 
                                      120 * st.GLOBAL_SCALE)
@@ -443,7 +576,7 @@ class Sword(pg.sprite.Sprite):
         self.group.add(self, layer=self.layer)
         self.player = player
         self.game = game
-        self.image = fn.loadImage('sword.png')
+        self.image = self.game.imageLoader.item_img['sword']
 
         self.pos = vec(0, 0)
         self.rot = 0
@@ -486,33 +619,33 @@ class Sword(pg.sprite.Sprite):
     def draw(self):
         self.game.screen.blit(self.image, self.pos)
         
-# ----------------------- ENEMIES --------------------------
+# ----------------------- ENEMIES ---------------------------------------------
         
 class Enemy(pg.sprite.Sprite):
+    '''
+    Container class for all enemies
+    '''
     def __init__(self):
         self.groups = self.game.all_sprites, self.game.enemies
         self.layer = self.game.player.layer + 1
         pg.sprite.Sprite.__init__(self)
+        
         for g in self.groups:
             g.add(self, layer=self.layer)
 
-        #self.walk_frames = images
         self.image = self.walk_frames[0]
         
         self.rect = self.image.get_rect()
-        #self.pos = vec(pos)
         self.rect.center = self.pos
-        self.hit_rect = self.rect
-        self.hit_rect.center = self.rect.center
         self.vel = vec(0, 0)
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
         self.moveTo = None
         self.acc = vec(0, 0)
-        self.maxSpeed = 0.5 * st.GLOBAL_SCALE
-
         self.state = 'IDLE'
 
+        # default values (change in individual init after super().__init__())
+        self.maxSpeed = 0.5 * st.GLOBAL_SCALE
         self.anim_update = 0
         self.walk_update = 0
         self.current_frame = 0
@@ -553,7 +686,7 @@ class Enemy(pg.sprite.Sprite):
         self.vel *= (1 - self.friction)
 
         # cap speed at maximum
-        if self.vel.length() > self.maxSpeed:
+        if self.vel.length_squared() > self.maxSpeed ** 2:
             self.vel.scale_to_length(self.maxSpeed)
 
         # stop from sliding infinitely
@@ -575,24 +708,26 @@ class Enemy(pg.sprite.Sprite):
             for g in self.groups:
                 g.change_layer(self, self.game.player.layer - 1)
        
-        self.move()
-        
+        self.move()      
         self.animate()
         
+        # change the moving direction after a certain time
         now = pg.time.get_ticks()
         if now - self.walk_update > 2000:
             self.walk_update = now
             self.moveTo = choice([LEFT, RIGHT, DOWN, UP])
-            
+        
+        # update the positions
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
         self.pos += self.vel
+        # collision
         self.hit_rect.centerx = self.pos.x
         fn.collide_with_walls(self, self.game.walls, 'x')
         self.hit_rect.centery = self.pos.y
         fn.collide_with_walls(self, self.game.walls, 'y')
         
-        # enemies have to stay in the room
+        # restrain position to stay in the room
         self.pos.x = fn.clamp(self.pos.x, st.TILESIZE * 2, 
                               st.WIDTH - st.TILESIZE * 2)
         self.pos.y = fn.clamp(self.pos.y, st.GUI_HEIGHT + st.TILESIZE * 2, 
@@ -617,7 +752,7 @@ class Skeleton(Enemy):
     def __init__(self, game, pos, *args):
         self.game = game
         self.pos = vec(pos)
-        self.walk_frames = self.game.enemy_image_dict['skeleton']
+        self.walk_frames = self.game.imageLoader.enemy_img['skeleton']
         super().__init__()
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
@@ -629,18 +764,19 @@ class Slime(Enemy):
     def __init__(self, game, pos, *args):
         self.game = game
         self.pos = vec(pos)
-        self.walk_frames = self.game.enemy_image_dict['slime']
+        self.walk_frames = self.game.imageLoader.enemy_img['slime']
         super().__init__()
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
         
-        
+  
+      
 class Bat(Enemy):
     def __init__(self, game, pos, *args):
         self.game = game
         self.pos = vec(pos)
-        self.walk_frames = self.game.enemy_image_dict['bat']
+        self.walk_frames = self.game.imageLoader.enemy_img['bat']
         super().__init__()
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
