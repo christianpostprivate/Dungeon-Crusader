@@ -122,7 +122,7 @@ class Game:
 
     def update(self):
         if self.debug:
-            self.caption = str(self.player.acc) + ' ' + str(self.player.stuntime)
+            self.caption = str(self.player.acc) + ' ' + str(self.player.state)
         else:
             self.caption = st.TITLE
         pg.display.set_caption(self.caption)

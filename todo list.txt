@@ -14,8 +14,8 @@
 - bei horizontalem Raumwechsel clipping fehler beheben
 - Sprite factory mit **kwargs
 *- Die gegner pos restricten 
-- knockback
-- loch zum reinfallen
+- enemy knockback
+- loch zum reinfallen ('falling' state)
 *- spawn point an den anfang des Raumes setzen
 *- save folder
 

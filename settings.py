@@ -22,8 +22,8 @@ TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
 
 # player settings
 PLAYER_MAXSPEED = 1 * GLOBAL_SCALE
-PLAYER_ACC = 0.4
-PLAYER_FRICTION = 0.1
+PLAYER_ACC = 0.4 * GLOBAL_SCALE
+PLAYER_FRICTION = 0.1 * GLOBAL_SCALE
 PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 
 # player hp 
@@ -41,7 +41,7 @@ ROOMS = {
 
 # list of tmx file numbers to pick from
 #TILEMAP_FILES = [i for i in range(1, 8)]
-TILEMAP_FILES = [9]
+TILEMAP_FILES = [1, 2, 9]
 
 # effects
 DAMAGE_ALPHA = [i for i in range(0, 255, 15)]
