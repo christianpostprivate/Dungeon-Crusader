@@ -23,10 +23,11 @@ TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
 # player settings
 PLAYER_MAXSPEED = 1 * GLOBAL_SCALE
 PLAYER_ACC = 0.4
+PLAYER_FRICTION = 0.1
 PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 
 # player hp 
-PLAYER_HP_START = 10.0
+PLAYER_HP_START = 3.0
 PLAYER_HP_MAX = 14.0
 
 
@@ -42,6 +43,8 @@ ROOMS = {
 #TILEMAP_FILES = [i for i in range(1, 8)]
 TILEMAP_FILES = [9]
 
+# effects
+DAMAGE_ALPHA = [i for i in range(0, 255, 15)]
 
 # default colors
 WHITE = (255, 255, 255)

@@ -16,7 +16,7 @@ vec = pg.math.Vector2
 #print(spr.export_globals())
 
 
-class Game():
+class Game:
     def __init__(self):
         # initialise game window etc.
         pg.mixer.pre_init(44100, -16, 2, 2048)
@@ -48,45 +48,10 @@ class Game():
 
 
     def loadData(self):
-        self.room_images = fn.img_list_from_strip('minimap_strip_7x5.png',
-                                                  7, 5, 0, 20, False)
-
-        self.room_image_dict = {
-                                'empty': self.room_images[0],
-                                'NSWE': self.room_images[1],
-                                'N': self.room_images[3],
-                                'E': self.room_images[4],
-                                'S': self.room_images[5],
-                                'W': self.room_images[6],
-                                'NE': self.room_images[7],
-                                'NS': self.room_images[8],
-                                'NW': self.room_images[9],
-                                'SE': self.room_images[10],
-                                'WE': self.room_images[11],
-                                'SW': self.room_images[12],
-                                'NWE': self.room_images[13],
-                                'NES': self.room_images[14],
-                                'SWE': self.room_images[15],
-                                'NWS': self.room_images[16]
-                                }
+        #loading assets (images, sounds)
+        self.imageLoader = spr.ImageLoader(self)
+        self.imageLoader.load()
         
-        self.enemy_image_dict = {
-            'skeleton': fn.img_list_from_strip('skeleton_strip.png', 16, 16, 0, 2),
-            'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 3),
-            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 2)
-            }
-
-
-        #self.tileset_names = ['tileset.png', 'tileset_sand.png',
-                              #'tileset_green.png','tileset_red.png']
-        self.tileset_names = ['tileset_red_8x8.png']
-        
-        self.tileset_image = fn.loadImage(self.tileset_names[0], 1)
-
-        # THIS IS NEW!
-        self.tileset_dict = {key: fn.tileImageScale(key, 8, 8, scale=True) 
-                                for key in self.tileset_names}
-
 
     def loadSavefile(self):
         self.player.loadSelf()
@@ -135,8 +100,8 @@ class Game():
 
         # create a background image from the tileset for the current room
         self.background = fn.tileRoom(self,
-                                      self.tileset_dict[self.dungeon.tileset],
-                                      self.dungeon.room_index)
+                          self.imageLoader.tileset_dict[self.dungeon.tileset],
+                          self.dungeon.room_index)
         
 
         self.run()
@@ -157,7 +122,7 @@ class Game():
 
     def update(self):
         if self.debug:
-            self.caption = str(self.in_transition) + ' ' + str(self.player.attack_update)
+            self.caption = str(self.player.acc) + ' ' + str(self.player.stuntime)
         else:
             self.caption = st.TITLE
         pg.display.set_caption(self.caption)
@@ -258,13 +223,14 @@ class Game():
             self.old_background = self.background
             # build the new room
             self.background = fn.tileRoom(self,
-                                          self.tileset_dict[self.dungeon.tileset],
-                                          self.dungeon.room_index)
+                          self.imageLoader.tileset_dict[self.dungeon.tileset],
+                          self.dungeon.room_index)
     
             # move the player to the other side of the screen
             #print('old', self.player.pos)
-            self.player.pos = new_pos
-            self.player.hit_rect.center = new_pos
+            self.player.pos = vec(new_pos)
+            self.player.hit_rect.center = vec(new_pos)
+            self.player.spawn_pos = vec(new_pos)
             self.player.rect.bottom = self.player.hit_rect.bottom
             #print('new', self.player.pos)
             # scroll the new and old background
