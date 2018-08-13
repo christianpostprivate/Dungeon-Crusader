@@ -162,6 +162,7 @@ class Player(pg.sprite.Sprite):
         self.hit_rect = st.PLAYER_HIT_RECT
         self.hit_rect.center = self.rect.center
         self.vel = vec(0, 0)
+        self.acc = vec(0, 0)
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
         self.lastimage = None
@@ -286,7 +287,8 @@ class Player(pg.sprite.Sprite):
               
         # add velocity to position
         self.pos += self.vel
-        self.acc *= 0
+        if self.state != 'HITSTUN':
+            self.acc *= 0
         
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
@@ -360,10 +362,23 @@ class Player(pg.sprite.Sprite):
             
     
     def stun(self, time):
-        self.vel = vec(0, 0)
+        self.vel *= 0
+        self.acc *= 0
         self.state = 'HITSTUN'
         self.lastimage = self.image.copy()
         self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
+
+    
+    def knockback(self, other, time, intensity):
+        if self.state != 'HITSTUN':
+            self.vel = vec(0, 0)
+            # calculate vector from other to self
+            knockdir = self.pos - other.pos
+            knockdir = knockdir.normalize()
+            self.acc = knockdir * st.GLOBAL_SCALE * intensity
+            self.state = 'HITSTUN'
+            self.lastimage = self.image.copy()
+            self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
         
 
 
@@ -581,6 +596,8 @@ class Sword(pg.sprite.Sprite):
         self.pos = vec(0, 0)
         self.rot = 0
 
+        self.damage = 1
+
         self.dir = self.player.lastdir
         # rotate image based on player direction and set position
         if self.dir == UP:
@@ -614,6 +631,9 @@ class Sword(pg.sprite.Sprite):
     def update(self):
         if not self.player.state == 'ATTACK':
             self.game.all_sprites.remove(self)
+
+        for enemy in pg.sprite.spritecollide(self, self.game.enemies, False):
+            enemy.hp -= self.damage
 
 
     def draw(self):
@@ -735,6 +755,10 @@ class Enemy(pg.sprite.Sprite):
 
         # position the hitrect at the bottom of the image
         self.rect.midbottom = self.hit_rect.midbottom
+
+        self.collide_with_player()
+        if self.hp <= 0:
+            self.kill()
         
     
     def animate(self):
@@ -746,7 +770,16 @@ class Enemy(pg.sprite.Sprite):
                 self.current_frame = (self.current_frame + 1) % len(
                                       self.walk_frames)
                 self.image = self.walk_frames[self.current_frame]
+
+
+    def collide_with_player(self):
+        # detect collision
+        player = self.game.player
+        if fn.collide_hit_rect(player, self) and player.state != 'HITSTUN':
+            player.knockback(self, self.kb_time, self.kb_intensity)
+            player.hp -= self.damage
             
+
 
 class Skeleton(Enemy):
     def __init__(self, game, pos, *args):
@@ -757,7 +790,12 @@ class Skeleton(Enemy):
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
-
+        
+        self.damage = 0.5
+        self.hp = 3
+        # knockback stats
+        self.kb_time = 1
+        self.kb_intensity = 1
 
 
 class Slime(Enemy):
@@ -770,6 +808,11 @@ class Slime(Enemy):
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
         
+        self.damage = 0.5
+        self.hp = 3
+        # knockback stats
+        self.kb_time = 1
+        self.kb_intensity = 1
   
       
 class Bat(Enemy):
@@ -783,6 +826,11 @@ class Bat(Enemy):
                                 int(st.TILESIZE * 0.6))
         
         self.anim_speed = 150
+        self.damage = 0.5
+        self.hp = 3
+        # knockback stats
+        self.kb_time = 1
+        self.kb_intensity = 1
 
         
 
