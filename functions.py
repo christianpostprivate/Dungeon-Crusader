@@ -120,7 +120,8 @@ def loadImage(filename, scale=st.GLOBAL_SCALE):
         return
 
 
-def img_list_from_strip(filename, width, height, startpos, number, scale=True):
+def img_list_from_strip(filename, width, height, startpos, number, scale=True, 
+                        size=st.TILESIZE):
     directory = path.dirname(__file__)
     img_folder = path.join(directory, 'images')
     file = path.join(img_folder, filename)
@@ -132,9 +133,13 @@ def img_list_from_strip(filename, width, height, startpos, number, scale=True):
     img_set = []
     for i in range(startpos, (startpos + number)):
         rect = ((i * width, 0), (width, height))
-        if scale:
+        if scale and size == st.TILESIZE:
             subimg = pg.transform.scale(img.subsurface(rect), 
                                         (st.TILESIZE, st.TILESIZE))
+        elif scale and size != st.TILESIZE:
+            subimg = pg.transform.scale(img.subsurface(rect), 
+                                        (size[0] * st.GLOBAL_SCALE, size[1] * 
+                                         st.GLOBAL_SCALE))
         else:
             subimg = img.subsurface(rect)
         img_set.append(subimg)
