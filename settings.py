@@ -41,7 +41,7 @@ ROOMS = {
 
 # list of tmx file numbers to pick from
 #TILEMAP_FILES = [i for i in range(1, 8)]
-TILEMAP_FILES = [1, 2, 9]
+TILEMAP_FILES = [1, 7, 9]
 
 # effects
 DAMAGE_ALPHA = [i for i in range(0, 255, 15)]

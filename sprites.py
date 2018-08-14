@@ -107,6 +107,8 @@ class ImageLoader:
             'skeleton': fn.img_list_from_strip('skeleton_strip.png', 16, 16, 
                                                0, 2),
             'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 3),
+            'slime_small': fn.img_list_from_strip('slime_strip.png', 16, 16, 
+                                                  0, 3, size=(8, 8)),
             'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 2)
             }
         
@@ -165,7 +167,6 @@ class Player(pg.sprite.Sprite):
         self.acc = vec(0, 0)
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
-        self.lastimage = None
         self.friction = st.PLAYER_FRICTION
 
 
@@ -215,7 +216,7 @@ class Player(pg.sprite.Sprite):
         if self.state == 'IDLE' or self.state == 'WALKING':
             keys = pg.key.get_pressed()
             
-            # set the movement vector based on key presses
+            # set the acceleration vector based on key presses
             move_x = ((keys[pg.K_RIGHT] or keys[pg.K_d]) -
                      (keys[pg.K_LEFT] or keys[pg.K_a]))
             move_y = ((keys[pg.K_DOWN] or keys[pg.K_s]) - 
@@ -223,30 +224,29 @@ class Player(pg.sprite.Sprite):
             
             self.acc = vec(move_x, move_y) * st.PLAYER_ACC
             
-            # set image direction based on key pressed
-            if keys[pg.K_LEFT] or keys[pg.K_a]:        
+            # set image's direction based on key pressed
+            if move_x == -1:        
                 self.dir = vec(LEFT)
                 self.lastdir = vec(LEFT)
 
-            if keys[pg.K_RIGHT] or keys[pg.K_d]:              
+            if move_x == 1:              
                 self.dir = vec(RIGHT)
                 self.lastdir = vec(RIGHT)
 
-            if keys[pg.K_UP] or keys[pg.K_w]:
+            if move_y == -1:
                 self.dir = vec(UP)
                 self.lastdir = vec(UP)
 
-            if keys[pg.K_DOWN] or keys[pg.K_s]:
+            if move_y == 1:
                 self.dir = vec(DOWN)
                 self.lastdir = vec(DOWN)
 
-            # set the state to walking
-            self.state = 'WALKING'
-            # stop the player from sliding infinitely
-            if self.vel.length() < 0.1:
-                self.vel = vec(0, 0)
-                # if velocity is less than threshold, set state to idle
+            if self.acc.length() < 0.1:
+                # if velocity is less than the threshold, set state to idle
                 self.state = 'IDLE'
+            else:
+                 # set the state to walking
+                 self.state = 'WALKING'
 
             if self.game.key_down == pg.K_SPACE:
                 self.state = 'ATTACK'
@@ -281,9 +281,11 @@ class Player(pg.sprite.Sprite):
         # apply friction
         self.vel *= (1 - self.friction)
 
-        # limit velocity to maximum
-        if self.vel.length() > st.PLAYER_MAXSPEED:
-            self.vel.scale_to_length(st.PLAYER_MAXSPEED)
+        # limit velocity
+        if self.vel.length_squared() > st.PLAYER_MAXSPEED ** 2:
+            self.vel.scale_to_length(st.PLAYER_MAXSPEED)        
+        elif self.vel.length_squared() < 0.01:
+            self.vel *= 0
               
         # add velocity to position
         self.pos += self.vel
@@ -447,16 +449,24 @@ class Hole(pg.sprite.Sprite):
         self.image.fill((0, 0, 0, 0))
         self.rect = self.image.get_rect()
         self.rect.topleft = self.pos
-        self.hit_rect = self.rect
+        self.hit_rect = pg.Rect((0, 0), (int(st.TILESIZE * 0.6), 
+                                int(st.TILESIZE * 0.6)))
+        self.hit_rect.center = self.rect.center
         
     
     def update(self):
         # detect collision
         player = self.game.player
         if fn.collide_hit_rect(player, self):
-            # TO DO: PLAYER GETS DRAWN SLOWLY TO THE CENTER
-            player.pos = vec(player.spawn_pos)
-            player.stun(3)
+            # Attract the player to the center of the hole
+            desired = self.rect.center - player.pos
+            mag = desired.length()
+            force = desired.normalize() * st.GLOBAL_SCALE * 10 / mag
+            player.pos += force
+            if desired.length_squared() < 50:
+                # set the player back to the entrance point
+                player.pos = vec(player.spawn_pos)
+                player.stun(3)
             
             
 # --------------- Inventory & Items -------------------------------------------
@@ -633,7 +643,9 @@ class Sword(pg.sprite.Sprite):
             self.game.all_sprites.remove(self)
 
         for enemy in pg.sprite.spritecollide(self, self.game.enemies, False):
-            enemy.hp -= self.damage
+            if enemy.state != 'HITSTUN':
+                enemy.hp -= self.damage
+                enemy.knockback(self.player, 1, 0.1)
 
 
     def draw(self):
@@ -662,7 +674,9 @@ class Enemy(pg.sprite.Sprite):
         self.lastdir = vec(DOWN)
         self.moveTo = None
         self.acc = vec(0, 0)
+        self.friction = 0.1
         self.state = 'IDLE'
+        
 
         # default values (change in individual init after super().__init__())
         self.maxSpeed = 0.5 * st.GLOBAL_SCALE
@@ -676,47 +690,39 @@ class Enemy(pg.sprite.Sprite):
         
         
     def move(self):
-        # acceleration
-        self.acc = vec(1, 1) * 0.3
-
-        self.friction = 0.1
-
-        # add acceleration to velocity
-        if self.moveTo == LEFT:
-            self.vel.x -= self.acc.x           
-            self.dir = vec(LEFT)
-            self.lastdir = vec(LEFT)
-
-        if self.moveTo == RIGHT:
-            self.vel.x += self.acc.x            
-            self.dir = vec(RIGHT)
-            self.lastdir = vec(RIGHT)
-
-        if self.moveTo == UP:
-            self.vel.y -= self.acc.y
-            self.dir = vec(UP)
-            self.lastdir = vec(UP)
-
-        if self.moveTo == DOWN:
-            self.vel.y += self.acc.y
-            self.dir = vec(DOWN)
-            self.lastdir = vec(DOWN)
-
-        # apply friction
-        self.vel *= (1 - self.friction)
-
-        # cap speed at maximum
-        if self.vel.length_squared() > self.maxSpeed ** 2:
-            self.vel.scale_to_length(self.maxSpeed)
-
-        # stop from sliding infinitely
-        if self.vel.length() < 0.1:
-            self.vel = vec(0, 0)
-
-        if self.vel.length() > 0.2:
-            self.state = 'WALKING'
-        else:
-            self.state = 'IDLE'
+        if self.state == 'IDLE' or self.state == 'WALKING':
+   
+            # add acceleration to velocity
+            if self.moveTo == LEFT:
+                self.acc.x = -1       
+                self.dir = vec(LEFT)
+                self.lastdir = vec(LEFT)
+    
+            if self.moveTo == RIGHT:
+                self.acc.x = 1          
+                self.dir = vec(RIGHT)
+                self.lastdir = vec(RIGHT)
+    
+            if self.moveTo == UP:
+                self.acc.y = -1
+                self.dir = vec(UP)
+                self.lastdir = vec(UP)
+    
+            if self.moveTo == DOWN:
+                self.acc.y = 1
+                self.dir = vec(DOWN)
+                self.lastdir = vec(DOWN)
+                
+            self.acc *= st.GLOBAL_SCALE
+    
+            if self.acc.length() > 0.2:
+                self.state = 'WALKING'
+            else:
+                self.state = 'IDLE'
+                
+        elif self.state == 'HITSTUN':
+            # can't receive input when stunned
+            pass
         
         
     def update(self):
@@ -728,19 +734,36 @@ class Enemy(pg.sprite.Sprite):
             for g in self.groups:
                 g.change_layer(self, self.game.player.layer - 1)
        
-        self.move()      
-        self.animate()
-        
         # change the moving direction after a certain time
         now = pg.time.get_ticks()
         if now - self.walk_update > 2000:
             self.walk_update = now
             self.moveTo = choice([LEFT, RIGHT, DOWN, UP])
         
+        self.move()
+        
+        # add acceleration to velocity
+        self.vel += self.acc
+        
+        if self.state != 'HITSTUN':
+            self.acc *= 0
+             # apply friction
+            self.vel *= (1 - self.friction)
+    
+            # cap speed at maximum
+            if self.vel.length_squared() > self.maxSpeed ** 2:
+                self.vel.scale_to_length(self.maxSpeed)
+
+        self.pos += self.vel
+
+        # stop from sliding infinitely
+        if self.vel.length() < 0.1:
+            self.vel = vec(0, 0)
+        
         # update the positions
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
-        self.pos += self.vel
+
         # collision
         self.hit_rect.centerx = self.pos.x
         fn.collide_with_walls(self, self.game.walls, 'x')
@@ -758,7 +781,11 @@ class Enemy(pg.sprite.Sprite):
 
         self.collide_with_player()
         if self.hp <= 0:
-            self.kill()
+            self.destroy()
+            
+                
+        self.animate()
+        
         
     
     def animate(self):
@@ -771,6 +798,16 @@ class Enemy(pg.sprite.Sprite):
                                       self.walk_frames)
                 self.image = self.walk_frames[self.current_frame]
 
+        elif self.state == 'HITSTUN':
+            # flicker to indicate damage
+            try:
+                alpha = next(self.damage_alpha)
+                self.image = self.lastimage.copy()
+                self.image.fill((255, 255, 255, alpha), 
+                                special_flags=pg.BLEND_RGBA_MULT)
+            except:
+                self.state = 'IDLE'
+
 
     def collide_with_player(self):
         # detect collision
@@ -778,6 +815,22 @@ class Enemy(pg.sprite.Sprite):
         if fn.collide_hit_rect(player, self) and player.state != 'HITSTUN':
             player.knockback(self, self.kb_time, self.kb_intensity)
             player.hp -= self.damage
+            
+    
+    def knockback(self, other, time, intensity):
+        if self.state != 'HITSTUN':
+            self.vel = vec(0, 0)
+            # calculate vector from other to self
+            knockdir = self.pos - other.pos
+            knockdir = knockdir.normalize()
+            self.acc = knockdir * st.GLOBAL_SCALE * intensity
+            self.state = 'HITSTUN'
+            self.lastimage = self.image.copy()
+            self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
+        
+    
+    def destroy(self):
+        self.kill()
             
 
 
@@ -813,7 +866,43 @@ class Slime(Enemy):
         # knockback stats
         self.kb_time = 1
         self.kb_intensity = 1
-  
+        
+    
+    def destroy(self):
+        # create two little slimes
+        for i in range(-45, 90, 90):
+            # TO DO: calculate the rotation relative to the player
+            rot = (self.pos - self.game.player.pos).rotate(i)
+            rot = rot.normalize() * st.GLOBAL_SCALE
+            s = SlimeSmall(self.game, self.pos + rot)
+            s.knockback(self, 2, 0.05)
+        
+        super().destroy()
+        
+
+class SlimeSmall(Enemy):
+    def __init__(self, game, pos, *args):
+        self.game = game
+        self.pos = vec(pos)
+        self.walk_frames = self.game.imageLoader.enemy_img['slime_small']
+        super().__init__()
+        
+        self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.4), 
+                                int(st.TILESIZE * 0.3))
+        
+        self.maxspeed = 10 * st.GLOBAL_SCALE
+        self.friction = 0
+        
+        self.damage = 0.25
+        self.hp = 2
+        # knockback stats
+        self.kb_time = 1
+        self.kb_intensity = 1
+        
+    
+    def destroy(self):       
+        super().destroy()
+
       
 class Bat(Enemy):
     def __init__(self, game, pos, *args):
