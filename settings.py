@@ -27,7 +27,7 @@ PLAYER_FRICTION = 0.1 * GLOBAL_SCALE
 PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 
 # player hp 
-PLAYER_HP_START = 3.0
+PLAYER_HP_START = 14.0
 PLAYER_HP_MAX = 14.0
 
 
@@ -40,8 +40,8 @@ ROOMS = {
     }
 
 # list of tmx file numbers to pick from
-#TILEMAP_FILES = [i for i in range(1, 8)]
-TILEMAP_FILES = [1, 7, 9]
+TILEMAP_FILES = [1, 2, 5, 8, 9, 10]
+#TILEMAP_FILES = [9]
 
 # effects
 DAMAGE_ALPHA = [i for i in range(0, 255, 15)]

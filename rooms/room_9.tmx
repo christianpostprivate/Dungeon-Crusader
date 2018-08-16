@@ -63,9 +63,9 @@
   <object id="48" name="hole" x="64" y="80" width="16" height="16"/>
   <object id="49" name="hole" x="64" y="96" width="16" height="16"/>
   <object id="50" name="bat" x="48" y="48" width="8" height="8"/>
-  <object id="52" name="bat" x="120" y="48" width="8" height="8"/>
-  <object id="53" name="bat" x="144" y="80" width="8" height="8"/>
-  <object id="54" name="bat" x="72" y="136" width="8" height="8"/>
+  <object id="52" name="bat" x="180" y="44" width="8" height="8"/>
+  <object id="53" name="bat" x="130" y="86" width="8" height="8"/>
+  <object id="54" name="bat" x="66" y="140" width="8" height="8"/>
   <object id="55" name="bat" x="192" y="136" width="8" height="8"/>
  </objectgroup>
 </map>

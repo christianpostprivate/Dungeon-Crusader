@@ -2,7 +2,7 @@ import pygame as pg
 import pickle
 from os import path
 import traceback
-from random import choice
+from random import choice, random, choices
 
 import functions as fn
 import settings as st
@@ -25,8 +25,9 @@ def create(game, data):
     # takes a dictionary of sprite properties
     name = d['name'].capitalize()
     #instantiate the sprite 
-    exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+    spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
                  (d['width'], d['height']))
+    spr.data = d
         
 
 
@@ -112,8 +113,14 @@ class ImageLoader:
             'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 2)
             }
         
+        self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
+                                                  0, 3, size=(8, 8))
+        
         self.item_img = {
-            'sword': fn.loadImage('sword.png')
+            'sword': fn.loadImage('sword.png'),
+            'heart': self.item_strip1[0],
+            'rupee': self.item_strip1[1], 
+            'key': self.item_strip1[2]
             }
         
         self.gui_img = {
@@ -122,7 +129,9 @@ class ImageLoader:
                           pg.Surface((16, 16)).fill(st.TRANS)],
             'health': fn.loadImage('health_string.png'),
             'hearts': fn.img_list_from_strip('hearts_strip.png',8, 8, 
-                                               0, 6, scale=False)
+                                               0, 6, scale=False),
+            'magic_items': fn.loadImage('magic_and_items.png'),
+            'magicbar': fn.loadImage('magicbar.png')
             }
         
 
@@ -153,6 +162,15 @@ class Player(pg.sprite.Sprite):
         self.attack_frames_r = [self.attack_strip[2]]
         self.attack_frames_u = [self.attack_strip[1]]
         self.attack_frames_d = [self.attack_strip[0]]
+        
+        # -----------------------------------------------------
+        self.fall_frames = [self.image_strip[6], self.image_strip[4], 
+                            self.image_strip[2], self.image_strip[0]]
+        self.fall_time = 0
+        self.falling_time = 0
+        self.ticks_to_fall = 800  # 1.5 seconds roughly
+
+        # -----------------------------------------------------
 
         self.image = self.walk_frames_d[0]
 
@@ -173,6 +191,8 @@ class Player(pg.sprite.Sprite):
         self.state = 'IDLE'
         self.max_hp = st.PLAYER_HP_START
         self.hp = 3.0
+        self.mana = 0
+        self.max_mana = 10
 
         self.itemA = None
         self.itemB = None
@@ -181,7 +201,12 @@ class Player(pg.sprite.Sprite):
 
         self.anim_update = 0
         self.attack_update = 0
-        self.current_frame = 0        
+        self.current_frame = 0     
+        
+        self.item_counts = {
+                'rupee': 0,
+                'smallkey': 0
+                }
 
         # testing a save function
         self.saveGame = self.game.saveGame
@@ -222,7 +247,10 @@ class Player(pg.sprite.Sprite):
             move_y = ((keys[pg.K_DOWN] or keys[pg.K_s]) - 
                       (keys[pg.K_UP] or  keys[pg.K_w]))
             
-            self.acc = vec(move_x, move_y) * st.PLAYER_ACC
+            self.acc = vec(move_x, move_y)
+            if self.acc.length_squared() > 1:
+                self.acc.normalize()
+            self.acc *= st.PLAYER_ACC
             
             # set image's direction based on key pressed
             if move_x == -1:        
@@ -262,17 +290,32 @@ class Player(pg.sprite.Sprite):
         elif self.state == 'HITSTUN':
             # can't receive input when stunned
             pass
+        
+        elif self.state == 'FALL':
+            if self.fall_time == 0:
+                self.fall_time = pg.time.get_ticks()
+                self.fall_time += self.ticks_to_fall  # add N seconds for the fall time
+            if self.falling_time > self.fall_time:  # fall until time passes N amount
+                self.falling_time = 0
+                self.fall_time = 0
+                self.state = 'IDLE'
+                self.pos = vec(self.spawn_pos)
+                self.stun(3)
+            else:
+                self.falling_time = pg.time.get_ticks()  # set fall time to current time
 
         # FOR TESTING
         if self.game.debug:
             if self.game.key_down == pg.K_PAGEUP:
                 self.hp += 0.25
+                self.mana += 0.5
             elif self.game.key_down == pg.K_PAGEDOWN:
                 self.hp -= 0.25
+                self.mana -= 0.5
 
 
 
-    def update(self, others):
+    def update(self):
         # get player input
         self.get_keys()
         
@@ -303,8 +346,9 @@ class Player(pg.sprite.Sprite):
         # position the hitrect at the bottom of the image
         self.rect.midbottom = self.hit_rect.midbottom
         
-        # restrain hp between 0 and max
+        # restrain hp and mana between 0 and max
         self.hp = max(0, min(self.hp, self.max_hp))
+        self.mana = max(0, min(self.mana, self.max_mana))
         
         # player animations
         self.animate()
@@ -348,14 +392,36 @@ class Player(pg.sprite.Sprite):
                 self.image = self.attack_frames_u[0]
         
         elif self.state == 'HITSTUN':
+            if self.lastdir == RIGHT:
+                self.image = self.idle_frames_r[0]
+            elif self.lastdir == LEFT:
+                self.image = self.idle_frames_l[0]
+            if self.lastdir == DOWN:
+                self.image = self.idle_frames_d[0]
+            elif self.lastdir == UP:
+                self.image = self.idle_frames_u[0]
             # flicker to indicate damage
             try:
                 alpha = next(self.damage_alpha)
-                self.image = self.lastimage.copy()
+                self.image = self.image.copy()
                 self.image.fill((255, 255, 255, alpha), 
                                 special_flags=pg.BLEND_RGBA_MULT)
             except:
                 self.state = 'IDLE'
+        
+        elif self.state == 'FALL':
+            if now - self.anim_update > 100:
+                self.anim_update = now
+                self.current_frame = (self.current_frame + 1) % len(
+                                      self.fall_frames)
+                self.image = self.fall_frames[self.current_frame].copy()
+                
+                fall_pct = max(0, ((self.fall_time - self.falling_time) / 
+                            self.ticks_to_fall))
+                
+                self.image = pg.transform.scale(self.image, 
+                                        (int(self.image.get_width() * fall_pct),
+                                         int(self.image.get_height() * fall_pct)))
 
 
     def attack(self):
@@ -376,11 +442,12 @@ class Player(pg.sprite.Sprite):
             self.vel = vec(0, 0)
             # calculate vector from other to self
             knockdir = self.pos - other.pos
-            knockdir = knockdir.normalize()
-            self.acc = knockdir * st.GLOBAL_SCALE * intensity
-            self.state = 'HITSTUN'
-            self.lastimage = self.image.copy()
-            self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
+            if knockdir.length_squared() > 0:
+                knockdir = knockdir.normalize()
+                self.acc = knockdir * st.GLOBAL_SCALE * intensity
+                self.state = 'HITSTUN'
+                self.lastimage = self.image.copy()
+                self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
         
 
 
@@ -457,16 +524,22 @@ class Hole(pg.sprite.Sprite):
     def update(self):
         # detect collision
         player = self.game.player
-        if fn.collide_hit_rect(player, self):
-            # Attract the player to the center of the hole
-            desired = self.rect.center - player.pos
-            mag = desired.length()
-            force = desired.normalize() * st.GLOBAL_SCALE * 10 / mag
-            player.pos += force
-            if desired.length_squared() < 50:
-                # set the player back to the entrance point
-                player.pos = vec(player.spawn_pos)
-                player.stun(3)
+        if player.state != 'FALL':
+            if fn.collide_hit_rect(player, self):
+                # Attract the player to the center of the hole
+                desired = self.rect.center - player.pos
+                mag = desired.length()
+                force = desired.normalize() * st.GLOBAL_SCALE * 10 / mag
+                player.pos += force
+                if desired.length_squared() < 50:
+                    # set the player back to the entrance point
+                    #player.pos = vec(player.spawn_pos)
+                    #player.stun(3)
+                    player.state = 'FALL'
+                    
+    
+    def updateData(self):
+        pass
             
             
 # --------------- Inventory & Items -------------------------------------------
@@ -497,6 +570,8 @@ class Inventory(pg.sprite.Sprite):
         self.health_string = self.game.imageLoader.gui_img['health']
         # images for the player health
         self.heart_images = self.game.imageLoader.gui_img['hearts']
+        self.magic_image = self.game.imageLoader.gui_img['magic_items']
+        self.magic_bar = self.game.imageLoader.gui_img['magicbar']
         for i in range(len(self.heart_images)):
             self.heart_images[i] = pg.transform.scale(self.heart_images[i], 
                                   (8 * st.GLOBAL_SCALE, 8 * st.GLOBAL_SCALE))
@@ -559,6 +634,23 @@ class Inventory(pg.sprite.Sprite):
         
         self.image.blit(self.health_string, (25 * st.GLOBAL_SCALE, 
                                              st.HEIGHT - 42 * st.GLOBAL_SCALE))
+        
+        # draw magic bar and item slots
+        # MEMO: might want to make multiple images 
+        
+        #draw mana bar
+        bar_stretched = self.magic_bar.copy()
+        mana_pct = self.game.player.mana / self.game.player.max_mana
+        factor = int(mana_pct * 9 * st.GLOBAL_SCALE)
+        bar_stretched = pg.transform.scale(bar_stretched, 
+                           (bar_stretched.get_width(),
+                           bar_stretched.get_height() * factor))
+        self.image.blit(bar_stretched, (82 * st.GLOBAL_SCALE, 
+                        st.HEIGHT - (5 + factor) * st.GLOBAL_SCALE))
+        
+        
+        self.image.blit(self.magic_image, (77 * st.GLOBAL_SCALE, 
+                                             st.HEIGHT - 48 * st.GLOBAL_SCALE))
 
         # draw the mini map
         map_pos = (192 * st.GLOBAL_SCALE, st.HEIGHT - 44 * st.GLOBAL_SCALE)
@@ -650,6 +742,85 @@ class Sword(pg.sprite.Sprite):
 
     def draw(self):
         self.game.screen.blit(self.image, self.pos)
+        
+        
+
+class Item:       
+    def drop(name, game, pos):
+        if name in Item.__dict__:
+            Item.__dict__[name](game, pos)
+            
+            
+    class ItemDrop(pg.sprite.Sprite):
+        def __init__(self):
+            self.groups = self.game.all_sprites, self.game.item_drops
+            self.layer = self.game.player.layer - 1
+            pg.sprite.Sprite.__init__(self)
+            
+            for g in self.groups:
+                g.add(self, layer=self.layer)
+        
+        
+        def update(self):
+            if fn.collide_hit_rect(self.player, self):
+                self.collect()
+        
+        def collect(self):
+            self.kill()
+        
+        
+    class heart(ItemDrop):
+        def __init__(self, game, pos):
+            self.game = game                    
+            self.player = self.game.player
+            self.pos = vec(pos)
+            super().__init__()
+            
+            self.image = self.game.imageLoader.item_img['heart']
+            self.rect = self.image.get_rect()
+            self.rect.center = self.pos
+            self.hit_rect = self.rect
+           
+            
+        def collect(self):
+            self.player.hp += 1
+            super().collect()
+            
+     
+    class rupee(ItemDrop):
+        def __init__(self, game, pos):
+            self.game = game                    
+            self.player = self.game.player
+            self.pos = vec(pos)
+            super().__init__()
+            
+            self.image = self.game.imageLoader.item_img['rupee']
+            self.rect = self.image.get_rect()
+            self.rect.center = self.pos
+            self.hit_rect = self.rect
+            
+            
+        def collect(self):
+            self.player.item_counts['rupee'] += 1
+            super().collect()
+            
+        
+    class key(ItemDrop):
+        def __init__(self, game, pos):
+            self.game = game                    
+            self.player = self.game.player
+            self.pos = vec(pos)
+            super().__init__()
+            
+            self.image = self.game.imageLoader.item_img['key']
+            self.rect = self.image.get_rect()
+            self.rect.center = self.pos
+            self.hit_rect = self.rect
+            
+        
+        def collect(self):
+            self.player.item_counts['key'] += 1
+            super().collect()
         
 # ----------------------- ENEMIES ---------------------------------------------
         
@@ -830,8 +1001,26 @@ class Enemy(pg.sprite.Sprite):
         
     
     def destroy(self):
+        self.dropItem()
         self.kill()
             
+        
+    def updateData(self):
+        self.data['x'] = self.pos.x
+        self.data['y'] = self.pos.y
+        
+    
+    def dropItem(self):
+        # drop an item based on the weighted probability
+        if hasattr(self, 'drop_rates'):
+            population = list(self.drop_rates.keys())
+            weights = list(self.drop_rates.values())
+    
+            c = choices(population, weights)[0]
+            try:
+                Item.drop(c, self.game, self.pos)
+            except:
+                pass
 
 
 class Skeleton(Enemy):
@@ -849,7 +1038,14 @@ class Skeleton(Enemy):
         # knockback stats
         self.kb_time = 1
         self.kb_intensity = 1
-
+        
+        self.drop_rates = {
+                'none': 0.6,
+                'heart': 0.05,
+                'rupee': 0.2
+                }
+        
+        
 
 class Slime(Enemy):
     def __init__(self, game, pos, *args):
@@ -874,13 +1070,13 @@ class Slime(Enemy):
             # TO DO: calculate the rotation relative to the player
             rot = (self.pos - self.game.player.pos).rotate(i)
             rot = rot.normalize() * st.GLOBAL_SCALE
-            s = SlimeSmall(self.game, self.pos + rot)
+            s = Slime_small(self.game, self.pos + rot)
             s.knockback(self, 2, 0.05)
         
         super().destroy()
         
 
-class SlimeSmall(Enemy):
+class Slime_small(Enemy):
     def __init__(self, game, pos, *args):
         self.game = game
         self.pos = vec(pos)
@@ -899,9 +1095,19 @@ class SlimeSmall(Enemy):
         self.kb_time = 1
         self.kb_intensity = 1
         
-    
-    def destroy(self):       
-        super().destroy()
+        self.data = {
+                'name': 'slime_small',
+                'x': self.pos.x,
+                'y': self.pos.y,
+                'width': self.rect.width,
+                'height': self.rect.height
+                }
+        
+        self.drop_rates = {
+                'none': 0.8,
+                'heart': 0.1,
+                'rupee': 0.2
+                }
 
       
 class Bat(Enemy):
@@ -920,6 +1126,12 @@ class Bat(Enemy):
         # knockback stats
         self.kb_time = 1
         self.kb_intensity = 1
+        
+        self.drop_rates = {
+                'none': 0.8,
+                'heart': 0.15,
+                'rupee': 0.3
+                }
+            
 
         
-
