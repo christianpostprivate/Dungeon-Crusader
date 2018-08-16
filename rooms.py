@@ -16,7 +16,7 @@ class Room:
         self.w = st.WIDTH // st.TILESIZE
         self.h = (st.HEIGHT - st.GUI_HEIGHT) // st.TILESIZE
         
-        self.visited = True
+        self.visited = False
         self.dist = -1
         
         # choose a random tmx file for this room
@@ -26,6 +26,8 @@ class Room:
             self.tm_file = 'room_{}.tmx'.format(choice(st.TILEMAP_FILES))
         
         self.build()
+        
+        self.object_data = []
    
      
     def build(self):       

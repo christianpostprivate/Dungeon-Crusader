@@ -78,6 +78,7 @@ class Game:
         self.walls = pg.sprite.LayeredUpdates()
         self.gui = pg.sprite.LayeredUpdates()
         self.enemies = pg.sprite.LayeredUpdates()
+        self.item_drops    = pg.sprite.LayeredUpdates()
 
         # instantiate dungeon
         self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
@@ -96,6 +97,7 @@ class Game:
             self.loadSavefile()
 
         # spawn the new objects (invisible)
+        self.prev_room = self.dungeon.room_index
         fn.transitRoom(self, self.dungeon)
 
         # create a background image from the tileset for the current room
@@ -122,7 +124,8 @@ class Game:
 
     def update(self):
         if self.debug:
-            self.caption = str(self.player.vel) + ' ' + str(self.player.state)
+            self.caption = (str(self.player.item_counts['rupee']) + ' ' + 
+                            str(self.player.mana))
         else:
             self.caption = st.TITLE
         pg.display.set_caption(self.caption)
@@ -135,11 +138,7 @@ class Game:
         self.key_down = fn.keyDown(self.event_list)
 
         if self.state == 'GAME':
-            for sprite in self.all_sprites:
-                if sprite == self.player:
-                    sprite.update(self.walls)
-                else:
-                    sprite.update()
+            self.all_sprites.update()
                     
             self.inventory.update()
             # check for room transitions on screen exit (every frame)
@@ -147,6 +146,7 @@ class Game:
                     self.player, self.dungeon)
 
             if self.new_room != self.dungeon.room_index:
+                self.prev_room = self.dungeon.room_index
                 self.dungeon.room_index = self.new_room
                 self.state = 'TRANSITION'
                 
@@ -155,6 +155,7 @@ class Game:
             
         elif self.state == 'TRANSITION':
             self.RoomTransition(self.new_pos, self.direction)
+            
 
 
     def events(self):
@@ -275,7 +276,7 @@ class Game:
                 self.screen.blit(self.background, self.bg_pos1)    
                 self.drawGUI()
             else:
-                # put wall objects in the room after transition
+                # put objects in the room after transition
                 fn.transitRoom(self, self.dungeon)
                 self.in_transition = False
                 self.state = 'GAME'

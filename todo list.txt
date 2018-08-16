@@ -19,6 +19,6 @@
 *- spawn point an den anfang des Raumes setzen
 *- save folder
 - Gegner Sterbe animationen
-- Positionen von Objekten im Raum speichern
+*- Positionen von Objekten im Raum speichern
 - maxspeed bei Gegnern funktioniert nicht
 

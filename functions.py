@@ -88,22 +88,45 @@ def screenWrap(player, dungeon):
 
 
 def transitRoom(game, dungeon):
-    index = dungeon.room_index
-    
+    # get the index of the next and the previous room
+    index_next = dungeon.room_index
+    index_prev = game.prev_room
+    # select the rooms based on the indices
+    room_current = dungeon.rooms[index_prev[0]][index_prev[1]]
+    room_next = dungeon.rooms[index_next[0]][index_next[1]]
+     
     # remove all sprite from the previous room
+    room_current.object_data = []
     for sprite in game.all_sprites:
         if sprite != game.player:
+            # store the current objects
+            if hasattr(sprite, 'updatData'):
+                sprite.updateData()
+            if hasattr(sprite, 'data'):
+                room_current.object_data.append(sprite.data)
             sprite.kill()
-
-    data = dungeon.rooms[index[0]][index[1]].layout    
-    for d in data:
-        try:
-            spr.create(game, d)
-        except Exception:
-            traceback.print_exc()
-            pass
     
-    dungeon.rooms[index[0]][index[1]].visited = True
+    if room_next.visited == False:
+        # if room not visited, get the object data from the initial layout
+        data = room_next.layout    
+        for d in data:
+            try:
+                spr.create(game, d)
+            except Exception:
+                traceback.print_exc()
+                pass
+        
+        room_next.visited = True
+    
+    else:
+        # if room already visited, get the objects from the stored data
+        data = room_next.object_data    
+        for d in data:
+            try:
+                spr.create(game, d)
+            except Exception:
+                traceback.print_exc()
+                pass
     
 
 def loadImage(filename, scale=st.GLOBAL_SCALE):
