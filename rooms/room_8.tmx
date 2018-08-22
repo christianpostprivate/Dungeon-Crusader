@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.1.5" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="8" tileheight="8" infinite="0" nextobjectid="41">
+<map version="1.0" tiledversion="1.1.5" orientation="orthogonal" renderorder="right-down" width="32" height="24" tilewidth="8" tileheight="8" infinite="0" nextobjectid="59">
  <tileset firstgid="1" source="../images/tileset_red_8x8.tsx"/>
  <layer name="tiles" width="32" height="24">
   <data encoding="csv">
@@ -50,5 +50,23 @@
   <object id="35" name="block" x="48" y="112" width="16" height="16"/>
   <object id="36" name="block" x="64" y="112" width="16" height="16"/>
   <object id="40" name="block" x="80" y="112" width="16" height="16"/>
+  <object id="41" name="hole" x="176" y="32" width="16" height="16"/>
+  <object id="42" name="hole" x="192" y="32" width="16" height="16"/>
+  <object id="43" name="hole" x="208" y="32" width="16" height="16"/>
+  <object id="44" name="hole" x="176" y="48" width="16" height="16"/>
+  <object id="45" name="hole" x="192" y="48" width="16" height="16"/>
+  <object id="46" name="hole" x="208" y="48" width="16" height="16"/>
+  <object id="47" name="hole" x="176" y="64" width="16" height="16"/>
+  <object id="48" name="hole" x="192" y="64" width="16" height="16"/>
+  <object id="49" name="hole" x="208" y="64" width="16" height="16"/>
+  <object id="50" name="hole" x="176" y="112" width="16" height="16"/>
+  <object id="51" name="hole" x="192" y="112" width="16" height="16"/>
+  <object id="52" name="hole" x="208" y="112" width="16" height="16"/>
+  <object id="53" name="hole" x="176" y="128" width="16" height="16"/>
+  <object id="54" name="hole" x="192" y="128" width="16" height="16"/>
+  <object id="55" name="hole" x="208" y="128" width="16" height="16"/>
+  <object id="56" name="hole" x="176" y="144" width="16" height="16"/>
+  <object id="57" name="hole" x="192" y="144" width="16" height="16"/>
+  <object id="58" name="hole" x="208" y="144" width="16" height="16"/>
  </objectgroup>
 </map>
