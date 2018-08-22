@@ -2,11 +2,12 @@ import pygame as pg
 import pickle
 from os import path
 import traceback
-from random import choice, random, choices
+from random import choice, choices
 
 import functions as fn
 import settings as st
 #import rooms as rm
+import cutscenes as cs
 
 vec = pg.math.Vector2
 
@@ -35,9 +36,7 @@ class saveObject:
     def __init__(self):
         self.data = {}
         self.filename = 'savefile.dat'
-        directory = path.dirname(__file__)
-        save_folder = path.join(directory, 'saves')
-        self.filename = path.join(save_folder, self.filename)
+        self.filename = path.join(st.SAVE_FOLDER, self.filename)
 
 
     def save(self):
@@ -79,9 +78,34 @@ class ImageLoader:
         # set the image for testing
         self.tileset_image = fn.loadImage(self.tileset_names[0], 1)
         self.solid_img ={
-            'block': fn.getSubimg(self.tileset_image, 16, 16, (16, 0))
+            'block': fn.getSubimg(self.tileset_image, 16, 16, (16, 0)),
+            'sign':  fn.loadImage('sign.png')
             }
+
+        self.doors_image = fn.loadImage('doors_strip.png', 1)
         
+        self.door_image_dict = {
+                'W': fn.getSubimg(self.doors_image, 24, 32, (0, 0), 
+                                  (24 * st.GLOBAL_SCALE, 32 * st.GLOBAL_SCALE)),
+                'N': fn.getSubimg(self.doors_image, 32, 24, (32, 0), 
+                                  (32 * st.GLOBAL_SCALE, 24 * st.GLOBAL_SCALE)),
+                'E': fn.getSubimg(self.doors_image, 24, 32, (72, 0), 
+                                  (24 * st.GLOBAL_SCALE, 32 * st.GLOBAL_SCALE)),
+                'S': fn.getSubimg(self.doors_image, 32, 24, (96, 8), 
+                                  (32 * st.GLOBAL_SCALE, 24 * st.GLOBAL_SCALE))
+                }
+        
+        self.door_key_image_dict = {
+                'W': fn.getSubimg(self.doors_image, 24, 32, (128, 0), 
+                                  (24 * st.GLOBAL_SCALE, 32 * st.GLOBAL_SCALE)),
+                'N': fn.getSubimg(self.doors_image, 32, 24, (160, 0), 
+                                  (32 * st.GLOBAL_SCALE, 24 * st.GLOBAL_SCALE)),
+                'E': fn.getSubimg(self.doors_image, 24, 32, (200, 0), 
+                                  (24 * st.GLOBAL_SCALE, 32 * st.GLOBAL_SCALE)),
+                'S': fn.getSubimg(self.doors_image, 32, 24, (224, 8), 
+                                  (32 * st.GLOBAL_SCALE, 24 * st.GLOBAL_SCALE))
+                }
+              
         self.room_img = fn.img_list_from_strip('minimap_strip_7x5.png',
                                                   7, 5, 0, 20, False)
         
@@ -109,12 +133,12 @@ class ImageLoader:
                                                0, 2),
             'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 3),
             'slime_small': fn.img_list_from_strip('slime_strip.png', 16, 16, 
-                                                  0, 3, size=(8, 8)),
+                                                 0, 3, size=st.TILESIZE_SMALL),
             'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 2)
             }
         
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
-                                                  0, 3, size=(8, 8))
+                                                 0, 3, size=st.TILESIZE_SMALL)
         
         self.item_img = {
             'sword': fn.loadImage('sword.png'),
@@ -128,11 +152,15 @@ class ImageLoader:
             'cursor': [fn.loadImage('cursor.png'),
                           pg.Surface((16, 16)).fill(st.TRANS)],
             'health': fn.loadImage('health_string.png'),
-            'hearts': fn.img_list_from_strip('hearts_strip.png',8, 8, 
+            'hearts': fn.img_list_from_strip('hearts_strip.png', 8, 8, 
                                                0, 6, scale=False),
             'magic_items': fn.loadImage('magic_and_items.png'),
-            'magicbar': fn.loadImage('magicbar.png')
+            'magicbar': fn.loadImage('magicbar.png'),
+            'arrows': fn.img_list_from_strip('arrows.png', 8, 8, 0, 4, 
+                                        scale=True, size=st.TILESIZE_SMALL)
             }
+        
+        self.font = st.FONT
         
 
 
@@ -169,6 +197,7 @@ class Player(pg.sprite.Sprite):
         self.fall_time = 0
         self.falling_time = 0
         self.ticks_to_fall = 800  # 1.5 seconds roughly
+        self.eff_by_hole = False
 
         # -----------------------------------------------------
 
@@ -204,7 +233,7 @@ class Player(pg.sprite.Sprite):
         self.current_frame = 0     
         
         self.item_counts = {
-                'rupee': 0,
+                'rupee': 100,
                 'smallkey': 0
                 }
 
@@ -309,9 +338,11 @@ class Player(pg.sprite.Sprite):
             if self.game.key_down == pg.K_PAGEUP:
                 self.hp += 0.25
                 self.mana += 0.5
+                self.item_counts['rupee'] += 1
             elif self.game.key_down == pg.K_PAGEDOWN:
                 self.hp -= 0.25
                 self.mana -= 0.5
+                self.item_counts['rupee'] -= 1
 
 
 
@@ -346,12 +377,15 @@ class Player(pg.sprite.Sprite):
         # position the hitrect at the bottom of the image
         self.rect.midbottom = self.hit_rect.midbottom
         
-        # restrain hp and mana between 0 and max
+        # restrain items between 0 and max
         self.hp = max(0, min(self.hp, self.max_hp))
         self.mana = max(0, min(self.mana, self.max_mana))
+        self.item_counts['rupee'] = max(0, min(self.item_counts['rupee'], 999))
         
         # player animations
         self.animate()
+        
+        self.eff_by_hole = False
 
 
     def animate(self):
@@ -497,6 +531,75 @@ class Block(Solid):
         super().__init__()
         
         
+class Sign(Solid):
+    '''
+    A sign that the player can interact with
+    ''' 
+    def __init__(self, game, pos, size, text):
+        self.game = game
+        self.pos = vec(pos)
+        self.size = size
+        self.text = cs.text_dict[text]
+        self.image = self.game.imageLoader.solid_img['sign']
+        self.reading = False
+        super().__init__()      
+        
+     
+    def update(self):
+        if (pg.sprite.collide_rect(self.game.player, self) and 
+            self.game.player.dir == vec(UP)):
+            if self.game.key_down == pg.K_RETURN and len(self.game.dialogs) == 0:
+                self.game.state = 'CUTSCENE'
+                cs.Textbox(self.game, (st.WIDTH / 2, st.HEIGHT / 3 * 2), self.text)
+            else:
+                if self.game.state == 'CUTSCENE' and len(self.game.dialogs) == 0:
+                    self.game.state = 'GAME'
+                    
+
+class Door(Solid):
+    '''
+     A closed door that disappears if the player achieves a goal
+    '''
+    def __init__(self, game, pos, direction):
+        self.game = game
+        self.pos = vec(pos)
+        self.image = self.game.imageLoader.door_image_dict[direction]
+        self.size = self.image.get_size()
+        super().__init__()  
+        
+
+class KeyDoor(Solid):
+    '''
+     A closed door that opens if the player has a key
+    '''
+    def __init__(self, game, pos, direction):
+        self.game = game
+        self.pos = vec(pos)
+        dir_dict = {
+                'S': UP,
+                'N': DOWN,
+                'E': RIGHT,
+                'W': LEFT
+        }
+        self.dir = dir_dict[direction]
+        self.image = self.game.imageLoader.door_key_image_dict[direction]
+        self.size = self.image.get_size()
+        super().__init__()  
+        
+    
+    def update(self):
+        if (pg.sprite.collide_rect(self.game.player, self) and 
+            self.game.player.dir == self.dir):
+            if self.game.key_down == pg.K_RETURN and len(self.game.dialogs) == 0:
+                self.game.state = 'CUTSCENE'
+                cs.Textbox(self.game, (st.WIDTH / 2, st.HEIGHT / 3 * 2), 
+                           cs.text_dict['key_needed'])
+            else:
+                if self.game.state == 'CUTSCENE' and len(self.game.dialogs) == 0:
+                    self.game.state = 'GAME'
+    
+    
+        
 
 class Hole(pg.sprite.Sprite):
     '''
@@ -524,7 +627,7 @@ class Hole(pg.sprite.Sprite):
     def update(self):
         # detect collision
         player = self.game.player
-        if player.state != 'FALL':
+        if player.state != 'FALL' and not player.eff_by_hole:
             if fn.collide_hit_rect(player, self):
                 # Attract the player to the center of the hole
                 desired = self.rect.center - player.pos
@@ -536,6 +639,8 @@ class Hole(pg.sprite.Sprite):
                     #player.pos = vec(player.spawn_pos)
                     #player.stun(3)
                     player.state = 'FALL'
+                else:
+                    player.eff_by_hole = True
                     
     
     def updateData(self):
@@ -599,7 +704,8 @@ class Inventory(pg.sprite.Sprite):
                 self.pos.y -= st.SCROLLSPEED_MENU
                 self.pos.y = min(0, self.pos.y)
             else:
-                self.game.state = 'GAME'
+                if self.game.state == 'MENU':
+                    self.game.state = 'GAME'
 
 
     def draw(self):
@@ -651,6 +757,22 @@ class Inventory(pg.sprite.Sprite):
         
         self.image.blit(self.magic_image, (77 * st.GLOBAL_SCALE, 
                                              st.HEIGHT - 48 * st.GLOBAL_SCALE))
+        
+        # draw item amounts
+        # rupees
+        font = self.game.imageLoader.font
+        font_size = 24
+        x_off = 166
+        text_pos = vec(x_off * st.GLOBAL_SCALE, 201 * st.GLOBAL_SCALE)
+        number = 'x %03d' % self.game.player.item_counts['rupee']
+        fn.draw_text(self.image, number,
+                     font, font_size, st.WHITE, text_pos, align='w')
+        
+        # keys
+        text_pos = vec(x_off * st.GLOBAL_SCALE, 217 * st.GLOBAL_SCALE)
+        number = 'x  %02d' % self.game.player.item_counts['smallkey']
+        fn.draw_text(self.image, number,
+                     font, font_size, st.WHITE, text_pos, align='w')
 
         # draw the mini map
         map_pos = (192 * st.GLOBAL_SCALE, st.HEIGHT - 44 * st.GLOBAL_SCALE)
@@ -1104,9 +1226,9 @@ class Slime_small(Enemy):
                 }
         
         self.drop_rates = {
-                'none': 0.8,
+                'none': 0.08,
                 'heart': 0.1,
-                'rupee': 0.2
+                'rupee': 0.8
                 }
 
       

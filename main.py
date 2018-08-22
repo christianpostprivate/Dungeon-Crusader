@@ -7,6 +7,7 @@ import settings as st
 import sprites as spr
 import functions as fn
 import rooms
+import cutscenes as cs
 
 vec = pg.math.Vector2
 
@@ -25,6 +26,8 @@ class Game:
 
         pg.key.set_repeat(10, 150)
         pg.mouse.set_visible(True)
+        
+        #self.font_name = pg.font.match_font(st.FONT_NAME)
 
         self.screen = pg.display.set_mode((st.WIDTH, st.HEIGHT))
 
@@ -44,10 +47,10 @@ class Game:
         self.saveGame = spr.saveObject()
         self.saveGame.load()
 
-        self.loadData()
+        self.loadAssets()
 
 
-    def loadData(self):
+    def loadAssets(self):
         #loading assets (images, sounds)
         self.imageLoader = spr.ImageLoader(self)
         self.imageLoader.load()
@@ -78,7 +81,8 @@ class Game:
         self.walls = pg.sprite.LayeredUpdates()
         self.gui = pg.sprite.LayeredUpdates()
         self.enemies = pg.sprite.LayeredUpdates()
-        self.item_drops    = pg.sprite.LayeredUpdates()
+        self.item_drops = pg.sprite.LayeredUpdates()
+        self.dialogs = pg.sprite.LayeredUpdates()
 
         # instantiate dungeon
         self.dungeon = rooms.Dungeon(self, st.DUNGEON_SIZE)
@@ -105,6 +109,15 @@ class Game:
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
                           self.dungeon.room_index)
         
+        # TESTING
+        spr.Sign(self, (15 * st.TILESIZE_SMALL, 9 * st.TILESIZE), 
+                 (st.TILESIZE, st.TILESIZE), 'test')
+        
+        spr.KeyDoor(self, st.DOOR_POSITIONS['S'], 'S')
+        #spr.Door(self, st.DOOR_POSITIONS['N'], 'N')
+        spr.KeyDoor(self, st.DOOR_POSITIONS['W'], 'W')
+        spr.Door(self, st.DOOR_POSITIONS['E'], 'E')
+        
 
         self.run()
 
@@ -125,7 +138,8 @@ class Game:
     def update(self):
         if self.debug:
             self.caption = (str(self.player.item_counts['rupee']) + ' ' + 
-                            str(self.player.mana))
+                            str(self.state))
+            
         else:
             self.caption = st.TITLE
         pg.display.set_caption(self.caption)
@@ -140,6 +154,7 @@ class Game:
         if self.state == 'GAME':
             self.all_sprites.update()
                     
+            self.dialogs.update()
             self.inventory.update()
             # check for room transitions on screen exit (every frame)
             self.direction, self.new_room, self.new_pos = fn.screenWrap(
@@ -155,6 +170,10 @@ class Game:
             
         elif self.state == 'TRANSITION':
             self.RoomTransition(self.new_pos, self.direction)
+            
+        elif self.state == 'CUTSCENE':
+            self.dialogs.update()
+            self.walls.update()
             
 
 
@@ -208,6 +227,9 @@ class Game:
 
     def drawGUI(self):
         # Interface (Items, HUD, map, textboxes etc)
+        for dialog in self.dialogs:
+            dialog.draw()
+        
         self.inventory.map_img = self.dungeon.blitRooms()
         self.inventory.draw()
 

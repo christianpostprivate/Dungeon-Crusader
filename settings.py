@@ -1,4 +1,5 @@
 import pygame as pg
+from os import path
 
 # window settings and constants
 GLOBAL_SCALE = 3
@@ -11,12 +12,21 @@ GUI_HEIGHT = TILESIZE * 3
 WIDTH = 2 * TILESIZE_SMALL * TILES_W
 HEIGHT = 2 * TILESIZE_SMALL * TILES_H + GUI_HEIGHT
 
+# file paths
+directory = path.dirname(__file__)
 
+FONT_FOLDER = path.join(directory, 'fonts')
+IMAGE_FOLDER = path.join(directory, 'images')
+ROOM_FOLDER = path.join(directory, 'rooms')
+SAVE_FOLDER = path.join(directory, 'saves')
+TEXT_FOLDER = path.join(directory, 'text')
+ 
 # ingame settings
 DUNGEON_SIZE = (10, 10)
 SCROLLSPEED = int(4 * GLOBAL_SCALE) # TOO FAST FOR SMALL SCALES!
 SCROLLSPEED_MENU = 3 * GLOBAL_SCALE
 FPS = 60
+FONT = path.join(FONT_FOLDER, 'slkscr.TTF')
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
         'inventory: ESC | save: F6 | load: F9 | debug mode: H')
 
@@ -38,6 +48,14 @@ ROOMS = {
     'E': ['WE', 'WE', 'WE', 'WE', 'W', 'W', 'W', 'WS', 'WN', 'SWE', 'NSW', 'NWE'],
     'S': ['NS', 'NS', 'NS', 'NS', 'N', 'N', 'N', 'WN', 'EN', 'NSE', 'NSW', 'NWE']
     }
+
+DOOR_POSITIONS = {
+        'N': (WIDTH // 2 - TILESIZE, GUI_HEIGHT + TILESIZE_SMALL),
+        'S': (WIDTH // 2 - TILESIZE, HEIGHT - 2 * TILESIZE),
+        'W': (TILESIZE_SMALL, HEIGHT // 2 + TILESIZE_SMALL),
+        'E': (WIDTH - 2* TILESIZE, HEIGHT // 2 + TILESIZE_SMALL)
+        }
+
 
 # list of tmx file numbers to pick from
 TILEMAP_FILES = [1, 2, 5, 8, 9, 10]

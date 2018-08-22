@@ -130,9 +130,7 @@ def transitRoom(game, dungeon):
     
 
 def loadImage(filename, scale=st.GLOBAL_SCALE):
-    directory = path.dirname(__file__)
-    img_folder = path.join(directory, 'images')
-    file = path.join(img_folder, filename)
+    file = path.join(st.IMAGE_FOLDER, filename)
     try:
         img = pg.image.load(file).convert_alpha()
         width, height = img.get_width(), img.get_height()
@@ -145,9 +143,7 @@ def loadImage(filename, scale=st.GLOBAL_SCALE):
 
 def img_list_from_strip(filename, width, height, startpos, number, scale=True, 
                         size=st.TILESIZE):
-    directory = path.dirname(__file__)
-    img_folder = path.join(directory, 'images')
-    file = path.join(img_folder, filename)
+    file = path.join(st.IMAGE_FOLDER, filename)
     try:
         img = pg.image.load(file).convert_alpha()
     except Exception:
@@ -160,31 +156,23 @@ def img_list_from_strip(filename, width, height, startpos, number, scale=True,
             subimg = pg.transform.scale(img.subsurface(rect), 
                                         (st.TILESIZE, st.TILESIZE))
         elif scale and size != st.TILESIZE:
-            subimg = pg.transform.scale(img.subsurface(rect), 
-                                        (size[0] * st.GLOBAL_SCALE, size[1] * 
-                                         st.GLOBAL_SCALE))
+            subimg = pg.transform.scale(img.subsurface(rect), (size, size))
         else:
             subimg = img.subsurface(rect)
         img_set.append(subimg)
     return img_set
 
 
-def getSubimg(image, width, height, topleft, scale=True):
+def getSubimg(image, width, height, topleft, size=(st.TILESIZE, st.TILESIZE)):
 
     rect = (topleft, (width, height))
-    if scale:
-        subimg = pg.transform.scale(image.subsurface(rect), 
-                                    (st.TILESIZE, st.TILESIZE))
-    else:
-        subimg = image.subsurface(rect)
+    subimg = pg.transform.scale(image.subsurface(rect), size)
     return subimg
     
 
 def tileImageScale(filename, size_w, size_h, scale=1, 
                    alpha=False):
-    directory = path.dirname(__file__)
-    img_folder = path.join(directory, 'images')
-    file = path.join(img_folder, filename)
+    file = path.join(st.IMAGE_FOLDER, filename)
     try:
         img = pg.image.load(file).convert()
         if alpha:
@@ -256,9 +244,7 @@ def keyDown(events):
 
     
 def tileset_from_tmx(filename):
-    directory = path.dirname(__file__)
-    room_folder = path.join(directory, 'rooms')
-    file = path.join(room_folder, filename)
+    file = path.join(st.ROOM_FOLDER, filename)
 
     tree = ET.parse(file)
     root = tree.getroot()
@@ -280,9 +266,7 @@ def tileset_from_tmx(filename):
 
 
 def objects_from_tmx(filename):
-    directory = path.dirname(__file__)
-    room_folder = path.join(directory, 'rooms')
-    file = path.join(room_folder, filename)
+    file = path.join(st.ROOM_FOLDER, filename)
 
     tree = ET.parse(file)
     root = tree.getroot()
@@ -297,3 +281,31 @@ def objects_from_tmx(filename):
                 pass
     
     return objects
+
+
+def draw_text(surface, text, file, size, color, pos, align='nw'):
+    x = pos.x
+    y = pos.y
+    font = pg.font.Font(file, size)
+    font.set_bold(False)
+    text_surface = font.render(text, False, color)
+    text_rect = text_surface.get_rect()
+    if align == 'nw':
+       text_rect.topleft = (x, y)
+    elif align == 'ne':
+        text_rect.topright = (x, y)
+    elif align == 'sw':
+        text_rect.bottomleft = (x, y)
+    elif align == 'se':
+        text_rect.bottomright = (x, y)
+    elif align == 'n':
+        text_rect.midtop = (x, y)
+    elif align == 's':
+        text_rect.mitbottom = (x, y)
+    elif align == 'e':
+        text_rect.midright = (x, y)
+    elif align == 'w':
+        text_rect.midleft = (x, y)
+    elif align == 'center':
+        text_rect.center = (x, y)
+    surface.blit(text_surface, text_rect)
