@@ -9,6 +9,9 @@
 - Gegner Sterbe animationen
 - maxspeed bei Gegnern funktioniert nicht
 - key logic
+- objektpositionen beim Raumwechsel funktionieren nicht
+- room_current as class variable of Dungeon
+- parent class für Schwerter, Stäbe etc
 
 
 ** done **

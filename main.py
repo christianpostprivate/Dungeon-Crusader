@@ -19,13 +19,13 @@ vec = pg.math.Vector2
 
 class Game:
     def __init__(self):
-        # initialise game window etc.
+        # initialise game window, settings etc.
         pg.mixer.pre_init(44100, -16, 2, 2048)
         pg.mixer.init()
         pg.init()
 
         pg.key.set_repeat(10, 150)
-        pg.mouse.set_visible(True)
+        pg.mouse.set_visible(False)
         
         #self.font_name = pg.font.match_font(st.FONT_NAME)
 
@@ -108,16 +108,6 @@ class Game:
         self.background = fn.tileRoom(self,
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
                           self.dungeon.room_index)
-        
-        # TESTING
-        spr.Sign(self, (15 * st.TILESIZE_SMALL, 9 * st.TILESIZE), 
-                 (st.TILESIZE, st.TILESIZE), 'test')
-        
-        spr.KeyDoor(self, st.DOOR_POSITIONS['S'], 'S')
-        #spr.Door(self, st.DOOR_POSITIONS['N'], 'N')
-        spr.KeyDoor(self, st.DOOR_POSITIONS['W'], 'W')
-        spr.Door(self, st.DOOR_POSITIONS['E'], 'E')
-        
 
         self.run()
 
@@ -137,8 +127,7 @@ class Game:
 
     def update(self):
         if self.debug:
-            self.caption = (str(self.player.item_counts['rupee']) + ' ' + 
-                            str(self.state))
+            self.caption = (str(self.clock.get_fps()))
             
         else:
             self.caption = st.TITLE
@@ -187,6 +176,7 @@ class Game:
                 self.running = False
 
             if event.type == pg.KEYDOWN:
+                # Key events
                 if event.key == pg.K_r and self.debug:
                     self.loaded = False
                     self.new()
@@ -218,6 +208,13 @@ class Game:
             if self.debug:
                 for sprite in self.all_sprites:
                     pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
+                    if isinstance(sprite, spr.Keydoor):
+                        pg.draw.rect(self.screen, st.GREEN, 
+                                     sprite.interact_rect, 1)
+                        
+                    #if hasattr(sprite, 'aggro_dist'):
+                        #pg.draw.circle(self.screen, st.RED, (int(sprite.pos.x),
+                                    #int(sprite.pos.y)), sprite.aggro_dist, 1)
     
             # draw the inventory
             self.drawGUI()
@@ -231,7 +228,7 @@ class Game:
             dialog.draw()
         
         self.inventory.map_img = self.dungeon.blitRooms()
-        self.inventory.draw()
+        self.inventory.draw() 
 
 
 
@@ -250,12 +247,10 @@ class Game:
                           self.dungeon.room_index)
     
             # move the player to the other side of the screen
-            #print('old', self.player.pos)
             self.player.pos = vec(new_pos)
             self.player.hit_rect.center = vec(new_pos)
             self.player.spawn_pos = vec(new_pos)
             self.player.rect.bottom = self.player.hit_rect.bottom
-            #print('new', self.player.pos)
             # scroll the new and old background
             # start positions for the new bg are based on the direction the
             # player is moving
