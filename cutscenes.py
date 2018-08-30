@@ -9,6 +9,11 @@ import settings as st
 vec = pg.math.Vector2
 
 
+# load text strings from file        
+with open(path.join(st.TEXT_FOLDER, 'texts.json'), 'r') as f:
+    text_dict = json.load(f) 
+
+
 
 class Textbox(pg.sprite.Sprite):
     def __init__(self, game, pos, text):
@@ -167,10 +172,6 @@ class Arrow(pg.sprite.Sprite):
     def draw(self, surface):
         surface.blit(self.image, self.rect)
         
-        
-# ------- TEXT SNIPPETS -------------------------------------------------------        
-        
-with open(path.join(st.TEXT_FOLDER, 'texts.json'), 'r') as f:
-    text_dict = json.load(f) 
+
         
  

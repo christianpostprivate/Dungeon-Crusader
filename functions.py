@@ -24,7 +24,7 @@ def remap(n, start1, stop1, start2, stop2):
     
 
 def collide_hit_rect(one, two):
-    return one.hit_rect.colliderect(two.rect)
+    return one.hit_rect.colliderect(two.hit_rect)
 
 
 def collide_with_walls(sprite, group, dir_):
@@ -32,11 +32,11 @@ def collide_with_walls(sprite, group, dir_):
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
             # hit from left
-            if hits[0].rect.centerx > sprite.hit_rect.centerx:
-                sprite.pos.x = hits[0].rect.left - sprite.hit_rect.w / 2
+            if hits[0].hit_rect.centerx > sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].hit_rect.left - sprite.hit_rect.w / 2
             # hit from right
-            elif hits[0].rect.centerx < sprite.hit_rect.centerx:
-                sprite.pos.x = hits[0].rect.right + sprite.hit_rect.w / 2
+            elif hits[0].hit_rect.centerx < sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].hit_rect.right + sprite.hit_rect.w / 2
                             
             sprite.vel.x = 0
             sprite.hit_rect.centerx = sprite.pos.x
@@ -45,11 +45,11 @@ def collide_with_walls(sprite, group, dir_):
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
             # hit from top
-            if hits[0].rect.centery > sprite.hit_rect.centery:
-                sprite.pos.y = hits[0].rect.top - sprite.hit_rect.h / 2
+            if hits[0].hit_rect.centery > sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].hit_rect.top - sprite.hit_rect.h / 2
             # hit from bottom
-            elif hits[0].rect.centery < sprite.hit_rect.centery:
-                sprite.pos.y = hits[0].rect.bottom + sprite.hit_rect.h / 2
+            elif hits[0].hit_rect.centery < sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].hit_rect.bottom + sprite.hit_rect.h / 2
                 
             sprite.vel.y = 0
             sprite.hit_rect.centery = sprite.pos.y
@@ -99,8 +99,8 @@ def transitRoom(game, dungeon):
     room_current.object_data = []
     for sprite in game.all_sprites:
         if sprite != game.player:
-            # store the current objects
-            if hasattr(sprite, 'updatData'):
+            # store the current objects' data
+            if hasattr(sprite, 'updateData'):
                 sprite.updateData()
             if hasattr(sprite, 'data'):
                 room_current.object_data.append(sprite.data)

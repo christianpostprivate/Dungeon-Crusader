@@ -24,6 +24,12 @@ class Room:
             self.tm_file = 'room_0.tmx'
         else:
             self.tm_file = 'room_{}.tmx'.format(choice(st.TILEMAP_FILES))
+            
+        # for testing!!!
+        if 'N' in self.doors:
+            self.locked_doors = ['N']
+        else:
+            self.locked_doors = []
         
         self.build()
         
@@ -36,6 +42,20 @@ class Room:
                 self.image = self.game.imageLoader.room_image_dict[key]
         
         self.tileRoom()
+        
+        # put locked door objects
+        for door in self.locked_doors:
+            pos = st.DOOR_POSITIONS[door]
+            self.layout.append({'id': 0, 'name': 'keydoor', 'x': pos[0], 
+                                'y': pos[1], 'width': 48, 'height': 48, 
+                                'direction': door})
+    
+        # for testing
+        if self.type == 'start':
+            self.layout.append({'id': 0, 'name': 'sign', 'x': 15 * st.TILESIZE_SMALL, 
+                                'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
+                                'text': 'test'})
+        
         
     
     def tileRoom(self):
