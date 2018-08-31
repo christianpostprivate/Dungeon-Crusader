@@ -89,7 +89,8 @@ class ImageLoader:
         self.tileset_image = fn.loadImage(self.tileset_names[0], 1)
         self.solid_img ={
             'block': fn.getSubimg(self.tileset_image, 16, 16, (16, 0)),
-            'sign':  fn.loadImage('sign.png')
+            'sign':  fn.loadImage('sign.png'),
+            'chest': fn.img_list_from_strip('chest.png', 16, 16, 0, 2)
             }
 
         self.doors_image = fn.loadImage('doors_strip.png', 1)
@@ -148,18 +149,27 @@ class ImageLoader:
             }
         
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
-                                                 0, 3, size=st.TILESIZE_SMALL)
-        
-        self.magicball = fn.img_list_from_strip('projectiles.png', 8, 8, 
-                                    3, 5, size=st.TILESIZE_SMALL)
-        
+                                                 0, 4, size=st.TILESIZE_SMALL)        
         self.item_img = {
             'sword': fn.loadImage('sword.png'),
             'staff': fn.loadImage('staff.png'),
             'heart': self.item_strip1[0],
             'rupee': self.item_strip1[1], 
-            'key': self.item_strip1[2]
+            'key': self.item_strip1[2],
+            'mana': self.item_strip1[3]
             }
+        
+        self.inv_item_strip = fn.img_list_from_strip('inv_item_strip.png', 16, 16, 
+                                                 0, 25, size=st.TILESIZE)        
+        self.inv_item_img = {
+                'sword': self.inv_item_strip[0],
+                'staff': self.inv_item_strip[1],
+                'bow': self.inv_item_strip[2]
+                }
+        
+        
+        self.magicball = fn.img_list_from_strip('projectiles.png', 8, 8, 
+                                    3, 3, size=st.TILESIZE_SMALL)
         
         self.gui_img = {
             'background': fn.loadImage('inventory_bg.png'),
@@ -236,11 +246,16 @@ class Player(pg.sprite.Sprite):
         self.hp = 3.0
         self.mana = 10
         self.max_mana = 10
-
-        self.itemA = None
+        
+        self.items = {
+                'sword': lambda: Sword(self.game, self),
+                'staff': lambda: Staff(self.game, self)
+                }
+        
+        self.itemA = 'sword'
         self.itemB = None
-
-        self.sword = None
+ 
+        self.item_using = None
 
         self.anim_update = 0
         self.attack_update = 0
@@ -285,11 +300,11 @@ class Player(pg.sprite.Sprite):
             keys = pg.key.get_pressed()
             
             # set the acceleration vector based on key presses
-            move_x = ((keys[pg.K_RIGHT] or keys[pg.K_d]) -
-                     (keys[pg.K_LEFT] or keys[pg.K_a]))
-            move_y = ((keys[pg.K_DOWN] or keys[pg.K_s]) - 
-                      (keys[pg.K_UP] or  keys[pg.K_w]))
-            
+            move_x = ((keys[st.KEY_RIGHT] or keys[pg.K_d]) -
+                     (keys[st.KEY_LEFT] or keys[pg.K_a]))
+            move_y = ((keys[st.KEY_DOWN] or keys[pg.K_s]) - 
+                      (keys[st.KEY_UP] or keys[pg.K_w]))
+
             self.acc = vec(move_x, move_y)
             if self.acc.length_squared() > 1:
                 self.acc.normalize()
@@ -318,13 +333,26 @@ class Player(pg.sprite.Sprite):
             else:
                  # set the state to walking
                  self.state = 'WALKING'
-
-            if self.game.key_down == pg.K_SPACE:
-                self.state = 'ATTACK'
-                self.vel = vec(0, 0)
                 
-        elif self.state == 'ATTACK':
-            self.attack()
+            if self.game.key_down == st.KEY_A:
+                if self.itemA:
+                    self.state = 'USE_A'
+                    self.vel = vec(0, 0)
+                
+            if self.game.key_down == st.KEY_B:
+                if self.itemB:
+                    self.state = 'USE_B'
+                    self.vel = vec(0, 0)
+                
+        elif self.state == 'USE_A':
+            self.useA()
+            self.attack_update += 1
+            if self.attack_update > 20:
+                self.attack_update = 0
+                self.state = 'IDLE'
+        
+        elif self.state == 'USE_B':
+            self.useB()
             self.attack_update += 1
             if self.attack_update > 20:
                 self.attack_update = 0
@@ -433,7 +461,7 @@ class Player(pg.sprite.Sprite):
             elif self.lastdir == UP:
                 self.image = self.idle_frames_u[0]
 
-        elif self.state == 'ATTACK':
+        elif self.state == 'USE_A' or self.state == 'USE_B':
             if self.lastdir == RIGHT:
                 self.image = self.attack_frames_r[0]
             elif self.lastdir == LEFT:
@@ -474,11 +502,16 @@ class Player(pg.sprite.Sprite):
                 self.image = pg.transform.scale(self.image, 
                                         (int(self.image.get_width() * fall_pct),
                                          int(self.image.get_height() * fall_pct)))
-
-
-    def attack(self):
-        if not self.game.all_sprites.has(self.sword):
-            self.sword = Staff(self.game, self)
+            
+            
+    def useA(self):
+        if not self.game.all_sprites.has(self.item_using):
+            self.item_using = self.items[self.itemA]()
+    
+    
+    def useB(self):
+        if not self.game.all_sprites.has(self.item_using):
+            self.item_using = self.items[self.itemB]()
             
     
     def stun(self, time):
@@ -572,6 +605,39 @@ class Sign(Solid):
             else:
                 if self.game.state == 'CUTSCENE' and len(self.game.dialogs) == 0:
                     self.game.state = 'GAME'
+                    
+
+class Chest(Solid):
+    '''
+    A sign that the player can interact with
+    ''' 
+    def __init__(self, game, pos, size, **kwargs):
+        self.game = game
+        self.pos = vec(pos)
+        self.loot = kwargs['loot']
+        self.loot_amount = kwargs['loot_amount']
+        # HIER KOMMT NOCH TEXT PASSEND ZUM ITEM
+        self.text = cs.text_dict['chest_opened'].format(self.loot)
+        self.image = self.game.imageLoader.solid_img['chest'][0]
+        self.size = self.image.get_size()
+        self.image_open = self.game.imageLoader.solid_img['chest'][1]
+        self.open = False
+        super().__init__()      
+        
+     
+    def update(self):
+        if (pg.sprite.collide_rect(self.game.player, self) and 
+            self.game.player.dir == vec(UP)):
+            if self.game.key_down == pg.K_RETURN and not self.open:
+                # open chest
+                self.open = True
+                self.image = self.image_open
+                self.game.state = 'CUTSCENE'
+                cs.Textbox(self.game, (st.WIDTH / 2, st.HEIGHT / 3 * 2), 
+                           self.text)
+                self.game.player.item_counts[self.loot] += self.loot_amount
+            else:
+                self.game.state = 'GAME'
                     
 
 class Door(Solid):
@@ -720,10 +786,15 @@ class Inventory(pg.sprite.Sprite):
                                   (8 * st.GLOBAL_SCALE, 8 * st.GLOBAL_SCALE))
             
         self.inv_index = [0, 0]
+        
+        # empty item matrix
+        self.inv_size = [5, 5]
+        self.inv_items = [[None for j in range(self.inv_size[1])] 
+                           for i in range(self.inv_size[0])] 
 
 
     def update(self):
-        if self.game.key_down == pg.K_ESCAPE:
+        if self.game.key_down == st.KEY_MENU:
             self.menu = not self.menu
 
         if self.menu:
@@ -733,8 +804,9 @@ class Inventory(pg.sprite.Sprite):
             if self.pos != (0, 0):
                 self.pos.y += st.SCROLLSPEED_MENU
                 self.pos.y = min(0, self.pos.y)
-                
-            self.move_cursor()
+    
+            # let the player move the cursor and select items                
+            self.move_cursor()               
 
         else:
             # sliding up animation
@@ -785,12 +857,13 @@ class Inventory(pg.sprite.Sprite):
         #draw mana bar
         bar_stretched = self.magic_bar.copy()
         mana_pct = self.game.player.mana / self.game.player.max_mana
-        factor = int(mana_pct * 9 * st.GLOBAL_SCALE)
+        factor = mana_pct * 28 * st.GLOBAL_SCALE
+        one_minus_factor = (1 - mana_pct) * 26 * st.GLOBAL_SCALE
         bar_stretched = pg.transform.scale(bar_stretched, 
                            (bar_stretched.get_width(),
-                           bar_stretched.get_height() * factor))
+                           int(factor)))
         self.image.blit(bar_stretched, (82 * st.GLOBAL_SCALE, 
-                        st.HEIGHT - (5 + factor) * st.GLOBAL_SCALE))
+                        st.HEIGHT - 31 * st.GLOBAL_SCALE + one_minus_factor))
         
         
         self.image.blit(self.magic_image, (77 * st.GLOBAL_SCALE, 
@@ -799,7 +872,7 @@ class Inventory(pg.sprite.Sprite):
         # draw item amounts
         # rupees
         font = self.game.imageLoader.font
-        font_size = 24
+        font_size = 8 * st.GLOBAL_SCALE
         x_off = 166
         text_pos = vec(x_off * st.GLOBAL_SCALE, 201 * st.GLOBAL_SCALE)
         number = 'x%03d' % self.game.player.item_counts['rupee']
@@ -818,6 +891,11 @@ class Inventory(pg.sprite.Sprite):
 
         # draw the inventory background
         self.image.blit(self.gui_img, (0, 0))
+        
+        # draw the items
+        self.draw_items()
+        
+        # draw the cursor
         self.draw_cursor()
         
         self.game.screen.blit(self.image, self.pos)
@@ -826,10 +904,16 @@ class Inventory(pg.sprite.Sprite):
     def move_cursor(self):
         key = self.game.key_down
         # set the movement vector based on key presses
-        move_x = (key == pg.K_RIGHT or key == pg.K_d) - (key == pg.K_LEFT or 
+        move_x = (key == st.KEY_RIGHT or key == pg.K_d) - (key == st.KEY_LEFT or 
                  key == pg.K_a)
-        move_y = (key == pg.K_DOWN or key == pg.K_s) - (key == pg.K_UP or 
+        move_y = (key == st.KEY_DOWN or key == pg.K_s) - (key == st.KEY_UP or 
                  key == pg.K_w)
+        
+        # change the inventory index
+        self.inv_index[0] += move_x
+        self.inv_index[1] += move_y        
+        self.inv_index[0] = fn.clamp(self.inv_index[0], 0, self.inv_size[0] - 1)
+        self.inv_index[1] = fn.clamp(self.inv_index[1], 0, self.inv_size[1] - 1)
         
         # move the cursor
         self.cursor_pos += vec(move_x, move_y) * 24 * st.GLOBAL_SCALE
@@ -838,10 +922,77 @@ class Inventory(pg.sprite.Sprite):
                                      120 * st.GLOBAL_SCALE)
         self.cursor_pos.y = fn.clamp(self.cursor_pos.y, 40 * st.GLOBAL_SCALE, 
                                      136 * st.GLOBAL_SCALE)
+        
+        # select items    
+        player = self.game.player 
+        x = self.inv_index[1]
+        y = self.inv_index[0]                     
+        if key == st.KEY_A:
+            if self.inv_items[x][y]:
+                # put the item into slot A
+                # if there is already an item, put it in slot B
+                # if the item is already in slot B, clear slot B
+                lastA = player.itemA
+                player.itemA = self.inv_items[x][y]
+                if player.itemA and player.itemB == None:
+                    player.itemB = player.itemA
+                if player.itemB == self.inv_items[x][y]:
+                    player.itemB = lastA
+                if player.itemB == player.itemA:
+                    player.itemB = None
+            else:
+                # play negative sound
+                pass
+            
+            print(player.itemA, player.itemB)
+        
+        if key == st.KEY_B:
+            if self.inv_items[x][y]:
+                # put the item into slot B
+                lastB = player.itemB
+                player.itemB = self.inv_items[x][y]
+                if player.itemB and player.itemB == None:
+                    player.itemA = player.itemB
+                if player.itemA == self.inv_items[x][y]:
+                    player.itemA = lastB
+                if player.itemA == player.itemB:
+                    player.itemA = None
+            else:
+                # play negative sound
+                pass
+            
+            print(player.itemA, player.itemB)
     
     
     def draw_cursor(self):
         self.image.blit(self.cursor_images[0], self.cursor_pos)
+        
+    
+    def draw_items(self):
+        player = self.game.player
+        
+        for i in range(self.inv_size[0]):
+            for j in range(self.inv_size[1]):
+                pos = vecNull
+                pos.x = (24 + 24 * i) * st.GLOBAL_SCALE
+                pos.y = (40 + 24 * j) * st.GLOBAL_SCALE
+                
+                if self.inv_items[j][i]:
+                    self.image.blit(self.game.imageLoader.inv_item_img[
+                            self.inv_items[j][i]], pos)
+        
+        # draw item in slots A and B
+        if player.itemA:
+            imageA = self.game.imageLoader.inv_item_img[player.itemA]
+            posA = (110 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)
+            self.image.blit(imageA, posA)
+        if player.itemB:
+            imageB = self.game.imageLoader.inv_item_img[player.itemB]        
+            posB = (134 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)   
+            self.image.blit(imageB, posB)
+                
+                
+                
 
 
 
@@ -891,7 +1042,7 @@ class Sword(pg.sprite.Sprite):
 
 
     def update(self):
-        if not self.player.state == 'ATTACK':
+        if not self.player.state == 'USE_A' and not self.player.state == 'USE_B':
             self.game.all_sprites.remove(self)
 
         for enemy in pg.sprite.spritecollide(self, self.game.enemies, False):
@@ -955,40 +1106,27 @@ class Staff(pg.sprite.Sprite):
             if self.player.mana >= 1:
                 self.lastdir = self.player.lastdir
                 Magicball(self.game, self, self.rect.center)
-                #self.player.mana -= 1
+                self.player.mana -= 1
                 self.fired = True
         
-        if not self.player.state == 'ATTACK':
+        if not self.player.state == 'USE_A' and not self.player.state == 'USE_B':
             self.game.all_sprites.remove(self)
 
 
     def draw(self):
         self.game.screen.blit(self.image, self.pos)
         
-        
 
-class Magicball(pg.sprite.Sprite):
-    # MAKE THIS A PARENT FOR PROJECTILES MAYBE
-    def __init__(self, game, player, pos, rotating=False):
-        self.group = game.all_sprites
-        self.layer = player.layer
-        pg.sprite.Sprite.__init__(self)
-        self.group.add(self, layer=self.layer)
-        self.player = player
-        self.game = game
-        self.image = self.game.imageLoader.magicball[0]
-        
-        self.pos = vec(pos)
 
-        self.vel = vec(0, 0)
-        self.speed = 2 * st.GLOBAL_SCALE
-        self.max_speed = 5
-
-        self.damage = 1
+class Projectile(pg.sprite.Sprite):
+    def __init__(self):
+        self.vel = vec(0, 0)       
+        self.anim_update = 0
+        self.current_frame = 0
 
         self.dir = self.player.lastdir
         
-        if rotating:
+        if self.rotating:
             self.rot = 0
             # rotate image based on player direction and set position
             if self.dir == UP:
@@ -1041,6 +1179,40 @@ class Magicball(pg.sprite.Sprite):
             for hit in hits:
                 hit.hp -= self.damage
                 self.kill()
+                
+        self.animate()
+                
+    
+    def animate(self):
+        now = pg.time.get_ticks()
+        if now - self.anim_update > self.anim_speed:
+            self.anim_update = now
+            self.current_frame = (self.current_frame + 1) % len(
+                                  self.image_frames)
+            self.image = self.image_frames[self.current_frame]
+
+      
+
+class Magicball(Projectile):
+    def __init__(self, game, player, pos, rotating=False):
+        self.group = game.all_sprites
+        self.layer = player.layer
+        pg.sprite.Sprite.__init__(self)
+        self.group.add(self, layer=self.layer)
+        self.player = player
+        self.game = game
+        self.rotating = rotating
+        self.pos = vec(pos)
+        
+        self.image_frames = self.game.imageLoader.magicball
+        self.image = self.image_frames[0]
+        
+        self.speed = 2 * st.GLOBAL_SCALE
+        self.max_speed = 3 * st.GLOBAL_SCALE
+        self.damage = 1
+        self.anim_speed = 100
+        
+        super().__init__()
     
     
 
@@ -1083,6 +1255,24 @@ class Item:
             
         def collect(self):
             self.player.hp += 1
+            super().collect()
+            
+            
+    class mana(ItemDrop):
+        def __init__(self, game, pos):
+            self.game = game                    
+            self.player = self.game.player
+            self.pos = vec(pos)
+            super().__init__()
+            
+            self.image = self.game.imageLoader.item_img['mana']
+            self.rect = self.image.get_rect()
+            self.rect.center = self.pos
+            self.hit_rect = self.rect
+           
+            
+        def collect(self):
+            self.player.mana += 5
             super().collect()
             
      
@@ -1244,8 +1434,8 @@ class Enemy(pg.sprite.Sprite):
         self.pos.y = fn.clamp(self.pos.y, st.GUI_HEIGHT + st.TILESIZE * 2, 
                               st.HEIGHT - st.TILESIZE * 2)
 
-        # position the hitbox at the center of the image
-        self.rect.center = self.hit_rect.center
+        # position the hitbox at the bottom of the image
+        self.rect.midbottom = self.hit_rect.midbottom
 
         self.collide_with_player()
         if self.hp <= 0:
@@ -1338,6 +1528,8 @@ class Skeleton(Enemy):
         self.walk_frames = self.game.imageLoader.enemy_img['skeleton']
         super().__init__()
         
+        self.state = 'WALKING'
+        
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
         
@@ -1361,6 +1553,8 @@ class Slime(Enemy):
         self.pos = vec(pos)
         self.walk_frames = self.game.imageLoader.enemy_img['slime']
         super().__init__()
+        
+        self.state = 'WALKING'
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
@@ -1416,7 +1610,8 @@ class Slime_small(Enemy):
         self.drop_rates = {
                 'none': 0.08,
                 'heart': 0.1,
-                'rupee': 0.8
+                'rupee': 0.1,
+                'mana': 0.8
                 }
 
 
@@ -1452,6 +1647,8 @@ class Bat(Enemy):
     
     def update(self):
         super().update()
+        
+        self.hit_rect.center = self.rect.center
         
         # state machine
         if self.state != 'HITSTUN':

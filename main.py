@@ -38,6 +38,7 @@ class Game:
         # booleans for drawing the hit rects and other debug stuff
         self.debug = False
         self.slowmotion = False
+        self.draw_vectors = False
         self.caption = ''
 
         self.key_down = None
@@ -53,7 +54,11 @@ class Game:
     def loadAssets(self):
         #loading assets (images, sounds)
         self.imageLoader = spr.ImageLoader(self)
-        self.imageLoader.load()
+        try:
+            self.imageLoader.load()
+        except Exception:
+            traceback.print_exc()
+            self.running = False
         
 
     def loadSavefile(self):
@@ -90,11 +95,16 @@ class Game:
             self.dungeon.tileset = self.saveGame.data['tileset']
         else:
             self.dungeon.create(rng_seed=None)
+     
+        self.inventory = spr.Inventory(self)
+        
+        # ADD SOME ITEMS FOR TESTING -------------------------
+        self.inventory.inv_items[0][0] = 'sword'
+        self.inventory.inv_items[0][1] = 'staff'
+        self.inventory.inv_items[0][2] = 'bow'
 
         # spawn the player in the middle of the screen/room
         self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
-
-        self.inventory = spr.Inventory(self)
 
         # load settings
         if self.loaded:
@@ -108,6 +118,11 @@ class Game:
         self.background = fn.tileRoom(self,
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
                           self.dungeon.room_index)
+        
+        # testing
+        spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (0, 0),
+                  loot='smallkey', loot_amount=1)
+        
 
         self.run()
 
@@ -127,7 +142,8 @@ class Game:
 
     def update(self):
         if self.debug:
-            self.caption = (str(self.clock.get_fps()))
+            self.caption = (str(self.dungeon.room_current.type) + ' ' + 
+                            str(self.dungeon.room_current.dist))
             
         else:
             self.caption = st.TITLE
@@ -181,6 +197,9 @@ class Game:
                     self.loaded = False
                     self.new()
 
+                if event.key == pg.K_v and self.debug:
+                    self.draw_vectors = not self.draw_vectors
+
                 if event.key == pg.K_F9:
                     # load save game
                     self.loaded = True
@@ -211,10 +230,11 @@ class Game:
                     if isinstance(sprite, spr.Keydoor):
                         pg.draw.rect(self.screen, st.GREEN, 
                                      sprite.interact_rect, 1)
-                        
-                    #if hasattr(sprite, 'aggro_dist'):
-                        #pg.draw.circle(self.screen, st.RED, (int(sprite.pos.x),
-                                    #int(sprite.pos.y)), sprite.aggro_dist, 1)
+                    if self.draw_vectors:    
+                        if hasattr(sprite, 'aggro_dist'):
+                            pg.draw.circle(self.screen, st.RED, 
+                                        (int(sprite.pos.x), int(sprite.pos.y)), 
+                                        sprite.aggro_dist, 1)
     
             # draw the inventory
             self.drawGUI()

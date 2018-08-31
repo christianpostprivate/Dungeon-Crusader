@@ -24,7 +24,7 @@ TEXT_FOLDER = path.join(directory, 'text')
 # ingame settings
 DUNGEON_SIZE = (10, 10)
 SCROLLSPEED = int(4 * GLOBAL_SCALE) # TOO FAST FOR SMALL SCALES!
-SCROLLSPEED_MENU = 3 * GLOBAL_SCALE
+SCROLLSPEED_MENU = 4 * GLOBAL_SCALE
 FPS = 60
 FONT = path.join(FONT_FOLDER, 'slkscr.TTF')
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
@@ -51,9 +51,9 @@ ROOMS = {
 
 DOOR_POSITIONS = {
         'N': (WIDTH // 2 - TILESIZE, TILESIZE_SMALL),
-        'S': (WIDTH // 2 - TILESIZE, HEIGHT - 2 * TILESIZE),
-        'W': (TILESIZE_SMALL, HEIGHT // 2 + TILESIZE_SMALL),
-        'E': (WIDTH - 2* TILESIZE, HEIGHT // 2 + TILESIZE_SMALL)
+        'S': (WIDTH // 2 - TILESIZE, HEIGHT - 2 * TILESIZE - GUI_HEIGHT),
+        'W': (TILESIZE_SMALL, HEIGHT // 2 - GUI_HEIGHT + TILESIZE_SMALL),
+        'E': (WIDTH - 2 * TILESIZE, HEIGHT // 2 - GUI_HEIGHT + TILESIZE_SMALL)
         }
 
 
@@ -74,3 +74,13 @@ YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 PINK = (255, 0, 255)
 TRANS = (255, 255, 255, 255)
+
+# key bindings
+KEY_A = pg.K_z
+KEY_B = pg.K_x
+KEY_MENU = pg.K_ESCAPE
+KEY_UP = pg.K_UP
+KEY_DOWN = pg.K_DOWN
+KEY_LEFT = pg.K_LEFT
+KEY_RIGHT = pg.K_RIGHT
+

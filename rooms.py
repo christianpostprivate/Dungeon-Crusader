@@ -25,11 +25,7 @@ class Room:
         else:
             self.tm_file = 'room_{}.tmx'.format(choice(st.TILEMAP_FILES))
             
-        # for testing!!!
-        if 'N' in self.doors:
-            self.locked_doors = ['N']
-        else:
-            self.locked_doors = []
+        self.locked_doors = []
         
         self.build()
         
@@ -42,21 +38,19 @@ class Room:
                 self.image = self.game.imageLoader.room_image_dict[key]
         
         self.tileRoom()
-        
-        # put locked door objects
-        for door in self.locked_doors:
-            pos = st.DOOR_POSITIONS[door]
-            self.layout.append({'id': 0, 'name': 'keydoor', 'x': pos[0], 
-                                'y': pos[1], 'width': 48, 'height': 48, 
-                                'direction': door})
     
         # for testing
         if self.type == 'start':
             self.layout.append({'id': 0, 'name': 'sign', 'x': 15 * st.TILESIZE_SMALL, 
                                 'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
-                                'text': 'test'})
-        
-        
+                                'text': 'instructions'})
+            '''# put locked door objects
+            for door in self.locked_doors:
+                pos = st.DOOR_POSITIONS[door]
+                self.layout.append({'id': 0, 'name': 'keydoor', 'x': pos[0], 
+                                    'y': pos[1], 'width': 48, 'height': 48, 
+                                    'direction': door})'''
+               
     
     def tileRoom(self):
         # positions of the doors
@@ -173,6 +167,8 @@ class Dungeon:
                                                         'start')
         self.room_index = self.start
         
+        self.room_current = self.rooms[self.room_index[0]][self.room_index[1]]
+        
         self.done = False
         
         self.saveGame = self.game.saveGame
@@ -216,11 +212,48 @@ class Dungeon:
         self.build(rng_seed)
 
         self.closeDoors()
+        # assign a distance from the start to every room
         self.floodFill()
         
+        # set the farest room to "boss"
+        pos = self.findEnd()
+        room = self.rooms[pos[0]][pos[1]]
+        room.type = 'endboss'
+        print(pos)
+        # find the adjacent room and lock it
+        if 'N' in room.doors:
+            self.rooms[pos[0] - 1][pos[1]].locked_doors.append('S')
+            self.lockDoors(self.rooms[pos[0] - 1][pos[1]], 'smallkey')
+        elif 'S' in room.doors:
+            self.rooms[pos[0] + 1][pos[1]].locked_doors.append('N')
+            self.lockDoors(self.rooms[pos[0] + 1][pos[1]], 'smallkey')
+        elif 'W' in room.doors:
+            self.rooms[pos[0]][pos[1] - 1].locked_doors.append('E')
+            self.lockDoors(self.rooms[pos[0]][pos[1] - 1], 'smallkey')
+        elif 'E' in room.doors:
+            self.rooms[pos[0]][pos[1] + 1].locked_doors.append('W')
+            self.lockDoors(self.rooms[pos[0]][pos[1] + 1], 'smallkey')
+            
         dt = datetime.now() - start
         ms = dt.seconds * 1000 + dt.microseconds / 1000.0
         print('Dungeon built in {} ms'.format(round(ms, 1)))
+        
+        
+        # TESTING
+        '''
+        self.rooms[5][5].locked_doors = ['N', 'S', 'W', 'E']
+        self.lockDoors(self.rooms[5][5], 'smallkey')'''
+        
+        
+    def findEnd(self):
+        # finds the farest room from the start
+        print('longest ', self.dist_longest)
+        for i in range(1, len(self.rooms)):
+            for j in range(1, len(self.rooms[i])):
+                room = self.rooms[i][j]
+                if room:
+                    if room.dist == self.dist_longest:
+                        return [i, j]
         
         
     def build(self, rng_seed):   
@@ -328,6 +361,16 @@ class Dungeon:
                     
                     # re-build the rooms after changes
                     room.build()
+                    
+    
+    def lockDoors(self, room, mode):
+        print('locked', room.locked_doors)
+        for door in room.locked_doors:
+            pos = st.DOOR_POSITIONS[door]
+            if mode == 'smallkey':
+                room.layout.append({'id': 0, 'name': 'keydoor', 'x': pos[0], 
+                                'y': pos[1], 'width': 48, 'height': 48, 
+                                'direction': door})
 
 
     def floodFill(self):
@@ -361,9 +404,17 @@ class Dungeon:
                             if self.rooms[i][j + 1].dist == -1:
                                 self.rooms[i][j + 1].dist = cycle + 1
                                 done = False
-                        
+            
             cycle += 1
-    
+
+        # find longest distance
+        self.dist_longest = 0
+        for i in range(1, len(self.rooms)):
+            for j in range(1, len(self.rooms[i])):
+                room = self.rooms[i][j]
+                if room:
+                    self.dist_longest = max(self.dist_longest, room.dist)
+                 
 
     def blitRooms(self):
         # blit a mini-map image onto the screen
