@@ -92,18 +92,18 @@ def transitRoom(game, dungeon):
     index_next = dungeon.room_index
     index_prev = game.prev_room
     # select the rooms based on the indices
-    room_current = dungeon.rooms[index_prev[0]][index_prev[1]]
+    room_prev = dungeon.rooms[index_prev[0]][index_prev[1]]
     room_next = dungeon.rooms[index_next[0]][index_next[1]]
      
     # remove all sprite from the previous room
-    room_current.object_data = []
+    room_prev.object_data = []
     for sprite in game.all_sprites:
         if sprite != game.player:
             # store the current objects' data
             if hasattr(sprite, 'updateData'):
                 sprite.updateData()
             if hasattr(sprite, 'data'):
-                room_current.object_data.append(sprite.data)
+                room_prev.object_data.append(sprite.data)
             sprite.kill()
     
     if room_next.visited == False:
@@ -127,6 +127,10 @@ def transitRoom(game, dungeon):
             except Exception:
                 traceback.print_exc()
                 pass
+    
+    # set the dungeon's current room based on room index
+    dungeon.room_current = dungeon.rooms[dungeon.room_index[0]][
+            dungeon.room_index[1]]
     
 
 def loadImage(filename, scale=st.GLOBAL_SCALE):
