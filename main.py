@@ -102,7 +102,7 @@ class Game:
         self.inventory.inv_items[0][2] = 'bow'
         self.inventory.inv_items[0][3] = 'hookshot'
 
-        # spawn the player in the middle of the screen/room
+        # spawn the player in the middle of the room
         self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
 
         # load settings
@@ -141,8 +141,9 @@ class Game:
 
     def update(self):
         if self.debug:
-            self.caption = (str(self.player.friction) + ' ' + 
-                            str(self.player.vel))
+            #self.caption = (str(self.player.friction) + ' ' + 
+                            #str(self.player.vel))
+            self.caption = 'DEBUG MODE'
             
         else:
             self.caption = st.TITLE
