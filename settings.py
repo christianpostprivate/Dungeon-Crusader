@@ -1,5 +1,6 @@
 import pygame as pg
 from os import path
+from random import choice
 
 # window settings and constants
 GLOBAL_SCALE = 3
@@ -20,6 +21,7 @@ IMAGE_FOLDER = path.join(directory, 'images')
 ROOM_FOLDER = path.join(directory, 'rooms')
 SAVE_FOLDER = path.join(directory, 'saves')
 TEXT_FOLDER = path.join(directory, 'text')
+SOUND_FOLDER = path.join(directory, 'sounds')
  
 # ingame settings
 DUNGEON_SIZE = (10, 10)
@@ -29,6 +31,9 @@ FPS = 60
 FONT = path.join(FONT_FOLDER, 'slkscr.TTF')
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
         'inventory: ESC | save: F6 | load: F9 | debug mode: H')
+
+SFX_VOL = 0.3
+MU_VOL = 0.3
 
 # player settings
 PLAYER_MAXSPEED = 1 * GLOBAL_SCALE
@@ -59,7 +64,12 @@ DOOR_POSITIONS = {
 
 # list of tmx file numbers to pick from
 TILEMAP_FILES = [1, 2, 5, 8, 9, 10]
-#TILEMAP_FILES = [9]
+#TILEMAP_FILES = [0]
+
+TM_POOL = []
+def randomizeRooms():
+    for i in range(DUNGEON_SIZE[0] * DUNGEON_SIZE[1]):
+        TM_POOL.append(choice(TILEMAP_FILES))
 
 # effects
 DAMAGE_ALPHA = [i for i in range(0, 255, 15)]
