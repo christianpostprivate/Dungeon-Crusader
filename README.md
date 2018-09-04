@@ -20,6 +20,6 @@ Requires python 3.x
 | key | action|
 |-----|-------|
 |F4 | slow motion mode (5 FPS)|
-|PAGEUP/PAGEDOWN | change hp/mana|
-|F12 | save dungeon image |
+|PAGEUP/PAGEDOWN | add/remove items|
+|F12 | save dungeon image as png (freezes the game) |
 | V | Display/hide enemy aggro radius|
