@@ -1,6 +1,7 @@
 import pygame as pg
 from random import choice, randint, seed
 from datetime import datetime
+import traceback
 
 import settings as st
 import functions as fn
@@ -17,13 +18,15 @@ class Room:
         self.h = (st.HEIGHT - st.GUI_HEIGHT) // st.TILESIZE
         
         self.visited = False
+        self.pos = [0, 0]
         self.dist = -1
         
         # choose a random tmx file for this room
         if self.type == 'start':
             self.tm_file = 'room_0.tmx'
         else:
-            self.tm_file = 'room_{}.tmx'.format(choice(st.TILEMAP_FILES))
+            # pop room layout from rooms pool
+            self.tm_file = 'room_{}.tmx'.format(st.TM_POOL.pop())
             
         self.locked_doors = []
         
@@ -41,15 +44,10 @@ class Room:
     
         # for testing
         if self.type == 'start':
-            self.layout.append({'id': 0, 'name': 'sign', 'x': 15 * st.TILESIZE_SMALL, 
-                                'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
-                                'text': 'instructions'})
-            '''# put locked door objects
-            for door in self.locked_doors:
-                pos = st.DOOR_POSITIONS[door]
-                self.layout.append({'id': 0, 'name': 'keydoor', 'x': pos[0], 
-                                    'y': pos[1], 'width': 48, 'height': 48, 
-                                    'direction': door})'''
+            #self.layout.append({'id': 0, 'name': 'sign', 'x': 15 * st.TILESIZE_SMALL, 
+                               # 'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
+                               # 'text': 'instructions'})
+            pass
                
     
     def tileRoom(self):
@@ -160,11 +158,14 @@ class Dungeon:
         h = int(self.size.y)
         # empty dungeon
         self.rooms = [[None for i in range(w)] for j in range(h)]
+        # 1D list of rooms
+        self.room_list = []
 
         # starting room
         self.start = [h // 2, w // 2]
-        self.rooms[self.start[0]][self.start[1]] = Room(self.game, 'NSWE', 
-                                                        'start')
+        r_start = Room(self.game, 'NSWE', 'start')
+        self.rooms[self.start[0]][self.start[1]] = r_start
+        self.room_list.append(r_start)
         self.room_index = self.start
         
         self.room_current = self.rooms[self.room_index[0]][self.room_index[1]]
@@ -209,35 +210,20 @@ class Dungeon:
         
         print('Dungeon seed: ', self.seed)
         
+        st.randomizeRooms()
+        
         self.build(rng_seed)
 
         self.closeDoors()
         # assign a distance from the start to every room
         self.floodFill()
         
-        # set the farest room to "boss"
-        pos = self.findEnd()
-        room = self.rooms[pos[0]][pos[1]]
-        room.type = 'endboss'
-        print(pos)
-        # find the adjacent room and lock it
-        if 'N' in room.doors:
-            self.rooms[pos[0] - 1][pos[1]].locked_doors.append('S')
-            self.lockDoors(self.rooms[pos[0] - 1][pos[1]], 'smallkey')
-        elif 'S' in room.doors:
-            self.rooms[pos[0] + 1][pos[1]].locked_doors.append('N')
-            self.lockDoors(self.rooms[pos[0] + 1][pos[1]], 'smallkey')
-        elif 'W' in room.doors:
-            self.rooms[pos[0]][pos[1] - 1].locked_doors.append('E')
-            self.lockDoors(self.rooms[pos[0]][pos[1] - 1], 'smallkey')
-        elif 'E' in room.doors:
-            self.rooms[pos[0]][pos[1] + 1].locked_doors.append('W')
-            self.lockDoors(self.rooms[pos[0]][pos[1] + 1], 'smallkey')
+        # set keys, lock doors etc
+        self.keyLogic()
             
         dt = datetime.now() - start
         ms = dt.seconds * 1000 + dt.microseconds / 1000.0
         print('Dungeon built in {} ms'.format(round(ms, 1)))
-        
         
         # TESTING
         '''
@@ -247,13 +233,10 @@ class Dungeon:
         
     def findEnd(self):
         # finds the farest room from the start
-        print('longest ', self.dist_longest)
-        for i in range(1, len(self.rooms)):
-            for j in range(1, len(self.rooms[i])):
-                room = self.rooms[i][j]
-                if room:
-                    if room.dist == self.dist_longest:
-                        return [i, j]
+        for room in self.room_list:
+            if room.dist == self.dist_longest:
+                print('Endboss 2 in', room.pos)
+                return room.pos
         
         
     def build(self, rng_seed):   
@@ -268,7 +251,9 @@ class Dungeon:
                     if room:
                         if 'N' in room.doors and self.rooms[i - 1][j] == None:
                             if i == 1:
-                                self.rooms[i - 1][j] = Room(self.game, 'S')
+                                r = Room(self.game, 'S')
+                                self.rooms[i - 1][j] = r
+                                self.room_list.append(r)
                             else:
                                 # pick random door constellation
                                 rng = choice(st.ROOMS['N'])
@@ -281,13 +266,17 @@ class Dungeon:
                                 if 'E' in rng and self.rooms[i - 1][j + 1]: 
                                     rng = rng.replace('E', '')
       
-                                self.rooms[i - 1][j] = Room(self.game, rng)
-                                
+                                r = Room(self.game, rng)
+                                self.rooms[i - 1][j] = r
+                                self.room_list.append(r)
+                                  
                             self.done = False
                         
                         if 'W' in room.doors and self.rooms[i][j - 1] == None:
                             if j == 1:
-                                self.rooms[i][j - 1] = Room(self.game, 'E')
+                                r = Room(self.game, 'E')
+                                self.rooms[i][j - 1] = r
+                                self.room_list.append(r)
                             else:
                                 rng = choice(st.ROOMS['W'])
                                 
@@ -298,13 +287,17 @@ class Dungeon:
                                 if 'S' in rng and self.rooms[i + 1][j - 1]: 
                                     rng = rng.replace('S', '')
                                 
-                                self.rooms[i][j - 1] = Room(self.game, rng)
-                                
+                                r = Room(self.game, rng)
+                                self.rooms[i][j - 1] = r
+                                self.room_list.append(r)
+                             
                             self.done = False
                         
                         if 'E' in room.doors and self.rooms[i][j + 1] == None:
                             if j == len(self.rooms) - 2:
-                                 self.rooms[i][j + 1] = Room(self.game, 'W')
+                                r = Room(self.game, 'W')
+                                self.rooms[i][j + 1] = r
+                                self.room_list.append(r)
                             else:
                                 rng = choice(st.ROOMS['E'])
                                 
@@ -315,14 +308,17 @@ class Dungeon:
                                 if 'S' in rng and self.rooms[i + 1][j + 1]: 
                                     rng = rng.replace('S', '')
                                 
-                                self.rooms[i][j + 1] = Room(self.game, rng)
-                                
+                                r = Room(self.game, rng)
+                                self.rooms[i][j + 1] = r
+                                self.room_list.append(r)
+                            
                             self.done = False                              
                         
                         if 'S' in room.doors and self.rooms[i + 1][j] == None:
                             if i == len(self.rooms) - 2:
-                                pass
-                                self.rooms[i + 1][j] = Room(self.game, 'N')
+                                r = Room(self.game, 'N')
+                                self.rooms[i + 1][j] = r
+                                self.room_list.append(r)
                             else:
                                 rng = choice(st.ROOMS['S'])
                                 
@@ -333,8 +329,10 @@ class Dungeon:
                                 if 'S' in rng and self.rooms[i + 2][j]: 
                                     rng = rng.replace('S', '')
                                 
-                                self.rooms[i + 1][j] = Room(self.game, rng)
-                                
+                                r = Room(self.game, rng)
+                                self.rooms[i + 1][j] = r
+                                self.room_list.append(r)
+                            
                             self.done = False
 
     
@@ -343,6 +341,8 @@ class Dungeon:
             for j in range(len(self.rooms[i])):
                 room = self.rooms[i][j]
                 if room:
+                    # set the room's position value
+                    room.pos = [i, j]
                     if 'N' in room.doors and self.rooms[i - 1][j]:
                         if 'S' not in self.rooms[i - 1][j].doors:
                             room.doors = room.doors.replace('N', '')
@@ -364,7 +364,6 @@ class Dungeon:
                     
     
     def lockDoors(self, room, mode):
-        print('locked', room.locked_doors)
         for door in room.locked_doors:
             pos = st.DOOR_POSITIONS[door]
             if mode == 'smallkey':
@@ -406,14 +405,51 @@ class Dungeon:
                                 done = False
             
             cycle += 1
-
+            
+        
+    def keyLogic(self):
         # find longest distance
         self.dist_longest = 0
-        for i in range(1, len(self.rooms)):
-            for j in range(1, len(self.rooms[i])):
-                room = self.rooms[i][j]
-                if room:
-                    self.dist_longest = max(self.dist_longest, room.dist)
+        for room in self.room_list:
+            self.dist_longest = max(self.dist_longest, room.dist)
+            
+        # set the farest room to endboss
+        for room in self.room_list:
+            if room.dist == self.dist_longest:
+                print('Endboss in', room.pos)
+                room.type = 'endboss'
+                pos = room.pos
+                break
+        
+        # find the adjacent room and lock it
+        room = self.rooms[pos[0]][pos[1]]
+        if 'N' in room.doors:
+            self.rooms[pos[0] - 1][pos[1]].locked_doors.append('S')
+            self.lockDoors(self.rooms[pos[0] - 1][pos[1]], 'smallkey')
+        elif 'S' in room.doors:
+            self.rooms[pos[0] + 1][pos[1]].locked_doors.append('N')
+            self.lockDoors(self.rooms[pos[0] + 1][pos[1]], 'smallkey')
+        elif 'W' in room.doors:
+            self.rooms[pos[0]][pos[1] - 1].locked_doors.append('E')
+            self.lockDoors(self.rooms[pos[0]][pos[1] - 1], 'smallkey')
+        elif 'E' in room.doors:
+            self.rooms[pos[0]][pos[1] + 1].locked_doors.append('W')
+            self.lockDoors(self.rooms[pos[0]][pos[1] + 1], 'smallkey')
+            
+        # find second longest distance
+        dist_longest = 0
+        for room in self.room_list:
+            if room.type != 'endboss' and len(room.doors) == 1:
+                dist_longest = max(dist_longest, room.dist)
+
+        for room in self.room_list:
+            if room.dist == dist_longest and room.type != 'endboss':
+                room.type = 'miniboss'
+                room.layout.append({'id': 0, 'name': 'chest', 'x': 15 * st.TILESIZE_SMALL, 
+                                'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
+                                'loot': 'smallkey', 'loot_amount': 1})
+                print('key in', room.pos)
+                break
                  
 
     def blitRooms(self):
@@ -436,7 +472,7 @@ class Dungeon:
                 room = self.rooms[i][j]
                 #pos = (j * (w / self.size.x) - 1, i  * (h / self.size.y) - 1)
                 pos = (j * size[0] - 1, i * size[1] - 1)
-                if room and room.visited:
+                if room:# and room.visited:
                     self.map_img.blit(room.image, pos)
                     if room.type == 'start':
                         # draw a square representing the starting room
@@ -459,4 +495,56 @@ class Dungeon:
         scaled = (w * st.GLOBAL_SCALE, h * st.GLOBAL_SCALE)
         return pg.transform.scale(self.map_img, scaled)
         
+    
+    def SaveToPNG(self):               
+        print('saving dungeon as PNG')
+        # save a png image of this dungeon
+        # image size
+        size_w = int(self.size.x * st.TILES_W * st.TILESIZE)
+        size_h = int(self.size.y * st.TILES_H * st.TILESIZE)
         
+        dungeon_img = pg.Surface((size_w, size_h))
+        dungeon_img.fill(st.BLACK)
+        
+        print(size_w, '*', size_h)
+        
+        h = dungeon_img.get_height()
+        w = dungeon_img.get_width()
+        for i in range(int(self.size.x)):
+            pg.draw.line(dungeon_img, st.WHITE, 
+                         (i * st.TILES_W * st.TILESIZE - 1, 0),
+                         (i * st.TILES_W * st.TILESIZE - 1, h), 2)
+        for i in range(int(self.size.y)):
+            pg.draw.line(dungeon_img, st.WHITE, 
+                         (0, i * st.TILES_H * st.TILESIZE - 1),
+                         (w, i * st.TILES_H * st.TILESIZE - 1), 2)
+        
+        for room in self.room_list:
+            pos_x = room.pos[1] * st.TILES_W * st.TILESIZE 
+            pos_y = room.pos[0] * st.TILES_H * st.TILESIZE
+            #print(pos_x, pos_y)
+            room_img = fn.tileRoom(self.game, 
+                          self.game.imageLoader.tileset_dict[self.tileset],
+                          room.pos)
+    
+            # get object images
+            for obj in room.layout:
+                try:
+                    image = self.game.imageLoader.map_sprites[obj['name']]
+                    room_img.blit(image, (obj['x'], obj['y']))
+                except Exception:
+                    #traceback.print_exc()
+                    pass
+                
+            dungeon_img.blit(room_img, (pos_x, pos_y))
+                    
+                
+
+
+        try:
+            pg.image.save(dungeon_img, 'dungeon_image.png')
+            pass
+        except Exception:
+            traceback.print_exc()
+            
+            

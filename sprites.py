@@ -18,6 +18,9 @@ RIGHT = (1, 0)
 
 vecNull = vec(0, 0)
 
+PLACEHOLDER_IMG = pg.Surface((st.TILESIZE, st.TILESIZE))
+PLACEHOLDER_IMG.fill(st.RED)
+
 
 exported_globals = globals()
 
@@ -35,6 +38,10 @@ def create(game, data):
     elif name == 'Sign':
         spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
                  size=(d['width'], d['height']), text=d['text'])
+    elif name == 'Chest':
+        spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+                 size=(d['width'], d['height']), loot=d['loot'],
+                 loot_amount=d['loot_amount'])
     else:
         spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
              (d['width'], d['height']))
@@ -148,28 +155,33 @@ class ImageLoader:
             'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 3)
             }
         
+        self.inv_item_strip = fn.img_list_from_strip('inv_item_strip.png', 16, 16, 
+                                                 0, 25, size=st.TILESIZE)        
+        self.inv_item_img = {
+                'sword': self.inv_item_strip[0],
+                'staff': self.inv_item_strip[1],
+                'bow': self.inv_item_strip[2],
+                'hookshot': self.inv_item_strip[3]
+                }
+        
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
-                                                 0, 4, size=st.TILESIZE_SMALL)        
+                                                 0, 4, size=st.TILESIZE_SMALL)
+        self.hookshot_strip = fn.img_list_from_strip('hookshot.png', 16, 16,
+                                                     0, 2, size=st.TILESIZE)        
+        
         self.item_img = {
             'sword': fn.loadImage('sword.png'),
             'staff': fn.loadImage('staff.png'),
+            'bow': self.inv_item_img['bow'],
+            'hookshot': self.hookshot_strip[0],
             'heart': self.item_strip1[0],
             'rupee': self.item_strip1[1], 
             'key': self.item_strip1[2],
             'mana': self.item_strip1[3]
             }
         
-        self.inv_item_strip = fn.img_list_from_strip('inv_item_strip.png', 16, 16, 
-                                                 0, 25, size=st.TILESIZE)        
-        self.inv_item_img = {
-                'sword': self.inv_item_strip[0],
-                'staff': self.inv_item_strip[1],
-                'bow': self.inv_item_strip[2]
-                }
-        
-        
-        self.magicball = fn.img_list_from_strip('projectiles.png', 8, 8, 
-                                    3, 3, size=st.TILESIZE_SMALL)
+        self.projectiles = fn.img_list_from_strip('projectiles.png', 8, 8, 
+                                    0, 7, size=st.TILESIZE_SMALL)
         
         self.gui_img = {
             'background': fn.loadImage('inventory_bg.png'),
@@ -185,6 +197,15 @@ class ImageLoader:
             }
         
         self.font = st.FONT
+        
+        # FOR TESTING
+        self.map_sprites = {
+                'skeleton': self.enemy_img['skeleton'][0],
+                'slime': self.enemy_img['slime'][0],
+                'bat': self.enemy_img['bat'][0],
+                'chest': self.solid_img['chest'][0],
+                'block': self.solid_img['block']
+                }
         
 
 
@@ -226,6 +247,8 @@ class Player(pg.sprite.Sprite):
         # -----------------------------------------------------
 
         self.image = self.walk_frames_d[0]
+        
+        self.sound = self.game.soundLoader
 
         self.rect = self.image.get_rect()
         self.pos = vec(pos)
@@ -238,7 +261,7 @@ class Player(pg.sprite.Sprite):
         self.acc = vec(0, 0)
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
-        self.friction = st.PLAYER_FRICTION
+        self.friction = vec(0, 0)
 
 
         self.state = 'IDLE'
@@ -249,11 +272,13 @@ class Player(pg.sprite.Sprite):
         
         self.items = {
                 'sword': lambda: Sword(self.game, self),
-                'staff': lambda: Staff(self.game, self)
+                'staff': lambda: Staff(self.game, self),
+                'bow': lambda: Bow(self.game, self),
+                'hookshot': lambda: Hookshot(self.game, self)
                 }
         
         self.itemA = 'sword'
-        self.itemB = None
+        self.itemB = 'hookshot'
  
         self.item_using = None
 
@@ -300,10 +325,8 @@ class Player(pg.sprite.Sprite):
             keys = pg.key.get_pressed()
             
             # set the acceleration vector based on key presses
-            move_x = ((keys[st.KEY_RIGHT] or keys[pg.K_d]) -
-                     (keys[st.KEY_LEFT] or keys[pg.K_a]))
-            move_y = ((keys[st.KEY_DOWN] or keys[pg.K_s]) - 
-                      (keys[st.KEY_UP] or keys[pg.K_w]))
+            move_x = keys[st.KEY_RIGHT] - keys[st.KEY_LEFT]
+            move_y = keys[st.KEY_DOWN] - keys[st.KEY_UP]
 
             self.acc = vec(move_x, move_y)
             if self.acc.length_squared() > 1:
@@ -397,7 +420,15 @@ class Player(pg.sprite.Sprite):
         # add acceleration to velocity
         self.vel += self.acc
         # apply friction
-        self.vel *= (1 - self.friction)
+        #self.vel *= (1 - self.friction)
+        # calculate friction
+        self.friction *= 0
+        if self.vel.length_squared() > 0:
+            self.friction = vec(self.vel) * -1
+            self.friction = self.friction.normalize()
+            self.friction *= st.PLAYER_FRICTION
+            # apply friction
+            self.vel += self.friction
 
         # limit velocity
         if self.vel.length_squared() > st.PLAYER_MAXSPEED ** 2:
@@ -540,7 +571,10 @@ class Solid(pg.sprite.Sprite):
     '''
     Container Class for all solid objects
     '''
-    def __init__(self):
+    def __init__(self, game, pos, size):
+        self.game = game
+        self.pos = vec(pos)
+        self.size = size
         self.groups = self.game.walls, self.game.all_sprites
         self.layer = 1
         pg.sprite.Sprite.__init__(self)
@@ -561,12 +595,10 @@ class Wall(Solid):
     An invisible wall object with variable size
     '''
     def __init__(self, game, pos, size, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.size = size
+        super().__init__(game, pos, size)
+        
         self.image = pg.Surface(size, pg.SRCALPHA)
         self.image.fill((0, 0, 0, 0))
-        super().__init__()
         
         
         
@@ -575,11 +607,9 @@ class Block(Solid):
     A solid block with an image, always same size
     ''' 
     def __init__(self, game, pos, size, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.size = size
+        super().__init__(game, pos, size)
+        
         self.image = self.game.imageLoader.solid_img['block']
-        super().__init__()
         
         
 class Sign(Solid):
@@ -587,13 +617,10 @@ class Sign(Solid):
     A sign that the player can interact with
     ''' 
     def __init__(self, game, pos, size, text, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.size = size
+        super().__init__(game, pos, size)   
         self.text = cs.text_dict[text]
         self.image = self.game.imageLoader.solid_img['sign']
         self.reading = False
-        super().__init__()      
         
      
     def update(self):
@@ -612,17 +639,16 @@ class Chest(Solid):
     A sign that the player can interact with
     ''' 
     def __init__(self, game, pos, size, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
+        super().__init__(game, pos, size)    
+        
         self.loot = kwargs['loot']
         self.loot_amount = kwargs['loot_amount']
-        # HIER KOMMT NOCH TEXT PASSEND ZUM ITEM
+        # TO DO: Text fitting the item (explaining etc)
         self.text = cs.text_dict['chest_opened'].format(self.loot)
         self.image = self.game.imageLoader.solid_img['chest'][0]
         self.size = self.image.get_size()
         self.image_open = self.game.imageLoader.solid_img['chest'][1]
         self.open = False
-        super().__init__()      
         
      
     def update(self):
@@ -645,12 +671,10 @@ class Door(Solid):
      A closed door that disappears if the player achieves a goal
     '''
     def __init__(self, game, pos,**kwargs):
-        self.game = game
-        self.pos = vec(pos)
+        super().__init__(game, pos, size=(0, 0))
+        
         self.image = self.game.imageLoader.door_image_dict[kwargs['direction']]
         self.size = self.image.get_size()
-        super().__init__()
-        
         
 
 class Keydoor(Solid):
@@ -658,8 +682,8 @@ class Keydoor(Solid):
      A closed door that opens if the player has a key
     '''
     def __init__(self, game, pos, size, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
+        super().__init__(game, pos, size)
+        
         self.dir_dict = {
                 'S': DOWN,
                 'N': UP,
@@ -667,9 +691,12 @@ class Keydoor(Solid):
                 'W': LEFT
         }
         self.dir = kwargs['direction']
+        
         self.image = self.game.imageLoader.door_key_image_dict[kwargs['direction']]
         self.size = self.image.get_size()
-        super().__init__()
+        self.rect = pg.Rect(self.pos, self.size)
+        self.hit_rect = self.rect.copy()
+
         offset = vec(10, 10)
         self.interact_rect = self.rect.inflate(offset)
         self.interact_rect.center = self.hit_rect.center
@@ -904,10 +931,8 @@ class Inventory(pg.sprite.Sprite):
     def move_cursor(self):
         key = self.game.key_down
         # set the movement vector based on key presses
-        move_x = (key == st.KEY_RIGHT or key == pg.K_d) - (key == st.KEY_LEFT or 
-                 key == pg.K_a)
-        move_y = (key == st.KEY_DOWN or key == pg.K_s) - (key == st.KEY_UP or 
-                 key == pg.K_w)
+        move_x = (key == st.KEY_RIGHT) - (key == st.KEY_LEFT)
+        move_y = (key == st.KEY_DOWN) - (key == st.KEY_UP)
         
         # change the inventory index
         self.inv_index[0] += move_x
@@ -943,8 +968,6 @@ class Inventory(pg.sprite.Sprite):
             else:
                 # play negative sound
                 pass
-            
-            print(player.itemA, player.itemB)
         
         if key == st.KEY_B:
             if self.inv_items[x][y]:
@@ -960,8 +983,6 @@ class Inventory(pg.sprite.Sprite):
             else:
                 # play negative sound
                 pass
-            
-            print(player.itemA, player.itemB)
     
     
     def draw_cursor(self):
@@ -984,19 +1005,15 @@ class Inventory(pg.sprite.Sprite):
         # draw item in slots A and B
         if player.itemA:
             imageA = self.game.imageLoader.inv_item_img[player.itemA]
-            posA = (110 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)
+            posA = (111 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)
             self.image.blit(imageA, posA)
         if player.itemB:
             imageB = self.game.imageLoader.inv_item_img[player.itemB]        
-            posB = (134 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)   
+            posB = (135 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)   
             self.image.blit(imageB, posB)
                 
                 
-                
-
-
-
-class Sword(pg.sprite.Sprite):
+class AttackItem(pg.sprite.Sprite):
     def __init__(self, game, player):
         self.group = game.all_sprites
         self.layer = player.layer
@@ -1004,12 +1021,11 @@ class Sword(pg.sprite.Sprite):
         self.group.add(self, layer=self.layer)
         self.player = player
         self.game = game
-        self.image = self.game.imageLoader.item_img['sword']
+        
+        self.image = self.game.imageLoader.item_img[self.type]
 
         self.pos = vec(0, 0)
         self.rot = 0
-
-        self.damage = 1
 
         self.dir = self.player.lastdir
         # rotate image based on player direction and set position
@@ -1042,63 +1058,36 @@ class Sword(pg.sprite.Sprite):
 
 
     def update(self):
+        # delete sprite if animation is over
         if not self.player.state == 'USE_A' and not self.player.state == 'USE_B':
             self.game.all_sprites.remove(self)
+
+
+class Sword(AttackItem):
+    def __init__(self, game, player):
+        self.type = 'sword'
+        super().__init__(game, player)
+
+        self.damage = 1
+        # play slash sound      
+        self.game.soundLoader.snd_slash.play()
+
+
+    def update(self):
+        super().update()
 
         for enemy in pg.sprite.spritecollide(self, self.game.enemies, False):
             if enemy.state != 'HITSTUN':
                 enemy.hp -= self.damage
                 enemy.knockback(self.player, 1, 0.1)
-
-
-    def draw(self):
-        self.game.screen.blit(self.image, self.pos)
         
 
 
-class Staff(pg.sprite.Sprite):
+class Staff(AttackItem):
     def __init__(self, game, player):
-        self.group = game.all_sprites
-        self.layer = player.layer
-        pg.sprite.Sprite.__init__(self)
-        self.group.add(self, layer=self.layer)
-        self.player = player
-        self.game = game
-        self.image = self.game.imageLoader.item_img['staff']
-
-        self.pos = vec(0, 0)
-        self.rot = 0
-
+        self.type = 'staff'
+        super().__init__(game, player)
         self.fired = False
-        
-        self.dir = self.player.lastdir
-        # rotate image based on player direction and set position
-        if self.dir == UP:
-            self.rot = 0
-            self.pos = vec(self.player.pos.x - 4 * st.GLOBAL_SCALE, 
-                           self.player.pos.y - 24 * st.GLOBAL_SCALE)
-            
-        elif self.dir == DOWN:
-            self.rot = 180
-            self.pos = vec(self.player.pos.x, self.player.pos.y + 4 
-                           * st.GLOBAL_SCALE)
-            
-        elif self.dir == RIGHT:
-            self.rot = 270
-            self.pos = vec(self.player.pos.x + 7 * st.GLOBAL_SCALE,
-                           self.player.pos.y - 4 * st.GLOBAL_SCALE)
-            
-        elif self.dir == LEFT:
-            self.rot = 90
-            self.pos = vec(self.player.pos.x - 20 * st.GLOBAL_SCALE,
-                           self.player.pos.y - 4 * st.GLOBAL_SCALE)
-
-        self.image = pg.transform.rotate(self.image, self.rot)
-        
-        self.rect = self.image.get_rect()
-        self.rect.topleft = self.pos
-        self.hit_rect = self.rect
-        self.hit_rect.center = self.rect.center
 
 
     def update(self):
@@ -1109,28 +1098,133 @@ class Staff(pg.sprite.Sprite):
                 self.player.mana -= 1
                 self.fired = True
         
-        if not self.player.state == 'USE_A' and not self.player.state == 'USE_B':
-            self.game.all_sprites.remove(self)
-
-
-    def draw(self):
-        self.game.screen.blit(self.image, self.pos)
+        super().update()
         
 
 
+class Bow(AttackItem):
+    def __init__(self, game, player):
+        self.type = 'bow'
+        super().__init__(game, player)
+        self.fired = False
+        
+        self.image = pg.transform.rotate(self.image, 270)
+
+
+    def update(self):
+        if not self.fired:
+            if self.player.mana >= 1:
+                self.lastdir = self.player.lastdir
+                Arrow(self.game, self, self.rect.center)
+                self.fired = True
+        
+        super().update()
+        
+
+class Hookshot(AttackItem):
+    def __init__(self, game, player):
+        self.type = 'hookshot'
+        super().__init__(game, player)
+        self.group.change_layer(self, self.player.layer - 2)
+        self.spr_chain = self.game.imageLoader.hookshot_strip[1]
+        self.hit = False
+        self.grabbed = None
+        
+        self.pos = vec(self.player.pos)
+        self.maxlen = 5 * st.TILESIZE
+        
+        self.speed = 3 * st.GLOBAL_SCALE
+        self.vel = vec(0, -1).rotate(-self.rot)
+        self.vel *= self.speed
+        
+        self.rect.center = self.pos
+        
+        self.hit_rect = pg.Rect((0, 0), (st.TILESIZE_SMALL, st.TILESIZE_SMALL))
+        self.hit_rect.center = self.pos
+
+
+    def update(self):
+        if not self.hit:
+            self.player.state = 'HOOKSHOT'
+            self.pos += self.vel
+            self.rect.center = self.pos
+            self.hit_rect.center = self.rect.center
+            # collide with walls, enemies, items etc
+            wall_hits = pg.sprite.spritecollide(self, self.game.walls, False)
+            enemy_hits = pg.sprite.spritecollide(self, self.game.enemies, False)
+            item_hits = pg.sprite.spritecollide(self, self.game.item_drops, False)
+            if wall_hits:
+                if self.hit_rect.colliderect(wall_hits[0].hit_rect):
+                    self.hit = True
+            if enemy_hits:
+                if self.hit_rect.colliderect(enemy_hits[0].hit_rect):
+                    enemy_hits[0].knockback(self, 1, 0.2)
+                    self.hit = True
+            if item_hits:
+                if self.hit_rect.colliderect(item_hits[0].hit_rect):
+                    self.grabbed = item_hits[0]
+                    self.hit = True
+            if ((self.pos - self.player.pos).length_squared() 
+                        > self.maxlen ** 2):
+                # if max length is reached, pull in
+                self.hit = True
+            
+        else:
+            self.pos -= self.vel
+            self.rect.center = self.pos
+            self.hit_rect.center = self.rect.center
+            if self.hit_rect.colliderect(self.player.rect):
+                self.kill()
+                self.player.state = 'IDLE'
+            
+            # pull grabbed item towards player
+            if self.grabbed:
+                self.grabbed.rect.center = self.pos
+        
+        
+    def draw_before(self):
+        n = 5
+        for i in range(n):
+            # calculate a vector v from self to player
+            v = self.pos - self.player.pos
+            # stretch the vector based on i
+            v *= (i / n)
+            pos = self.player.pos + v - vec(st.TILESIZE_SMALL, st.TILESIZE_SMALL)
+            self.game.screen.blit(self.spr_chain, pos)
+            #pg.draw.line(self.game.screen, st.RED, (int(self.player.pos.x), 
+            #            int(self.player.pos.y)), (int(self.pos.x), 
+            #               int(self.pos.y)), 4)
+
+
 class Projectile(pg.sprite.Sprite):
-    def __init__(self):
+    '''
+    Container class for projectiles fired by items, enemies etc.
+    Sprite can have a fixed rotation based on the player's direction
+    TO DO: change player to any emitter to enable enemy shooting
+    '''
+    def __init__(self, game, player, pos, rotating):
+        self.group = game.all_sprites
+        self.layer = player.layer
+        pg.sprite.Sprite.__init__(self)
+        self.group.add(self, layer=self.layer)
+        self.player = player
+        self.game = game
+        self.rotating = rotating
+        self.pos = vec(pos)
+        
         self.vel = vec(0, 0)       
         self.anim_update = 0
         self.current_frame = 0
-
+        
+        # set own direction based on the direction the player sprite is facing
         self.dir = self.player.lastdir
         
         if self.rotating:
             self.rot = 0
-            # rotate image based on player direction and set position
             if self.dir == UP:
                 self.rot = 0
+                # TO DO: change the position so that it fits every possible
+                # sprite
                 self.pos = vec(self.player.pos.x - 4 * st.GLOBAL_SCALE, 
                                self.player.pos.y - 24 * st.GLOBAL_SCALE)
                 
@@ -1178,9 +1272,11 @@ class Projectile(pg.sprite.Sprite):
         if hits:
             for hit in hits:
                 hit.hp -= self.damage
-                self.kill()
-                
-        self.animate()
+                self.kill()      
+        try:        
+            self.animate()
+        except:
+            pass
                 
     
     def animate(self):
@@ -1194,36 +1290,45 @@ class Projectile(pg.sprite.Sprite):
       
 
 class Magicball(Projectile):
-    def __init__(self, game, player, pos, rotating=False):
-        self.group = game.all_sprites
-        self.layer = player.layer
-        pg.sprite.Sprite.__init__(self)
-        self.group.add(self, layer=self.layer)
-        self.player = player
-        self.game = game
-        self.rotating = rotating
-        self.pos = vec(pos)
-        
-        self.image_frames = self.game.imageLoader.magicball
+    def __init__(self, game, player, pos, rotating=False):  
+        self.image_frames = game.imageLoader.projectiles[2:5]
         self.image = self.image_frames[0]
+        super().__init__(game, player, pos, rotating)      
         
         self.speed = 2 * st.GLOBAL_SCALE
         self.max_speed = 3 * st.GLOBAL_SCALE
         self.damage = 1
         self.anim_speed = 100
         
-        super().__init__()
-    
+   
+
+class Arrow(Projectile):
+    def __init__(self, game, player, pos, rotating=True):
+        self.image = game.imageLoader.projectiles[6]             
+        super().__init__(game, player, pos, rotating)
+        
+        self.speed = 1 * st.GLOBAL_SCALE
+        self.max_speed = 3 * st.GLOBAL_SCALE
+        self.damage = 1
+        self.anim_speed = 100
+          
     
 
 class Item:       
     def drop(name, game, pos):
         if name in Item.__dict__:
+            # instanciate the given sprite by its name
             Item.__dict__[name](game, pos)
-            
+        elif name == 'none':
+            pass
+        else:
+            print('Can\'t drop {}.'.format(name))
             
     class ItemDrop(pg.sprite.Sprite):
-        def __init__(self):
+        def __init__(self, game, pos):
+            self.game = game                    
+            self.player = self.game.player
+            self.pos = vec(pos)
             self.groups = self.game.all_sprites, self.game.item_drops
             self.layer = self.game.player.layer - 1
             pg.sprite.Sprite.__init__(self)
@@ -1242,11 +1347,7 @@ class Item:
         
     class heart(ItemDrop):
         def __init__(self, game, pos):
-            self.game = game                    
-            self.player = self.game.player
-            self.pos = vec(pos)
-            super().__init__()
-            
+            super().__init__(game, pos)          
             self.image = self.game.imageLoader.item_img['heart']
             self.rect = self.image.get_rect()
             self.rect.center = self.pos
@@ -1255,16 +1356,13 @@ class Item:
             
         def collect(self):
             self.player.hp += 1
+            self.game.soundLoader.snd_heart.play()
             super().collect()
             
             
     class mana(ItemDrop):
         def __init__(self, game, pos):
-            self.game = game                    
-            self.player = self.game.player
-            self.pos = vec(pos)
-            super().__init__()
-            
+            super().__init__(game, pos)          
             self.image = self.game.imageLoader.item_img['mana']
             self.rect = self.image.get_rect()
             self.rect.center = self.pos
@@ -1278,11 +1376,7 @@ class Item:
      
     class rupee(ItemDrop):
         def __init__(self, game, pos):
-            self.game = game                    
-            self.player = self.game.player
-            self.pos = vec(pos)
-            super().__init__()
-            
+            super().__init__(game, pos)           
             self.image = self.game.imageLoader.item_img['rupee']
             self.rect = self.image.get_rect()
             self.rect.center = self.pos
@@ -1291,16 +1385,13 @@ class Item:
             
         def collect(self):
             self.player.item_counts['rupee'] += 1
+            self.game.soundLoader.snd_rupee.play()
             super().collect()
             
         
     class key(ItemDrop):
         def __init__(self, game, pos):
-            self.game = game                    
-            self.player = self.game.player
-            self.pos = vec(pos)
-            super().__init__()
-            
+            super().__init__(game, pos)         
             self.image = self.game.imageLoader.item_img['key']
             self.rect = self.image.get_rect()
             self.rect.center = self.pos
@@ -1315,9 +1406,11 @@ class Item:
         
 class Enemy(pg.sprite.Sprite):
     '''
-    Container class for all enemies
+    Container class for all basic enemies
     '''
-    def __init__(self):
+    def __init__(self, game, pos):
+        self.game = game
+        self.pos = vec(pos)
         self.groups = self.game.all_sprites, self.game.enemies
         self.layer = self.game.player.layer + 1
         pg.sprite.Sprite.__init__(self)
@@ -1377,7 +1470,7 @@ class Enemy(pg.sprite.Sprite):
                 self.acc = target * self.maxSpeed
             
             else:
-                self.acc = vecNull
+                self.acc = vec(0, 0)
                 
         elif self.state == 'HITSTUN':
             # can't change acceleration when stunned
@@ -1491,7 +1584,7 @@ class Enemy(pg.sprite.Sprite):
                 knockdir = knockdir.normalize()
                 self.acc = knockdir * st.GLOBAL_SCALE * intensity
             else:
-                self.acc = vecNull
+                self.acc *= 0
             self.state = 'HITSTUN'
             self.lastimage = self.image.copy()
             self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
@@ -1523,10 +1616,8 @@ class Enemy(pg.sprite.Sprite):
 
 class Skeleton(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.walk_frames = self.game.imageLoader.enemy_img['skeleton']
-        super().__init__()
+        self.walk_frames = game.imageLoader.enemy_img['skeleton']
+        super().__init__(game, pos)
         
         self.state = 'WALKING'
         
@@ -1540,22 +1631,19 @@ class Skeleton(Enemy):
         self.kb_intensity = 1
         
         self.drop_rates = {
-                'none': 0.6,
-                'heart': 0.05,
-                'rupee': 0.2
+                'none': 0.1,
+                'heart': 0.3,
+                'rupee': 0.3
                 }
         
         
 
 class Slime(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.walk_frames = self.game.imageLoader.enemy_img['slime']
-        super().__init__()
+        self.walk_frames = game.imageLoader.enemy_img['slime']
+        super().__init__(game, pos)
         
-        self.state = 'WALKING'
-        
+        self.state = 'WALKING'        
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
         
@@ -1582,10 +1670,8 @@ class Slime(Enemy):
 
 class Slime_small(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.walk_frames = self.game.imageLoader.enemy_img['slime_small']
-        super().__init__()
+        self.walk_frames = game.imageLoader.enemy_img['slime_small']
+        super().__init__(game, pos)
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.4), 
                                 int(st.TILESIZE * 0.3))
@@ -1609,21 +1695,19 @@ class Slime_small(Enemy):
         
         self.drop_rates = {
                 'none': 0.08,
-                'heart': 0.1,
-                'rupee': 0.1,
-                'mana': 0.8
+                'heart': 0.3,
+                'rupee': 0.3,
+                'mana': 0.3
                 }
 
 
       
 class Bat(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.game = game
-        self.pos = vec(pos)
-        self.walk_frames = [self.game.imageLoader.enemy_img['bat'][0],
-                            self.game.imageLoader.enemy_img['bat'][1]]
-        self.idle_frames = [self.game.imageLoader.enemy_img['bat'][2]]
-        super().__init__()
+        self.walk_frames = [game.imageLoader.enemy_img['bat'][0],
+                            game.imageLoader.enemy_img['bat'][1]]
+        self.idle_frames = [game.imageLoader.enemy_img['bat'][2]]
+        super().__init__(game, pos)
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
@@ -1639,7 +1723,7 @@ class Bat(Enemy):
         self.timer = 0
         
         self.drop_rates = {
-                'none': 0.8,
+                'none': 0.1,
                 'heart': 0.15,
                 'rupee': 0.3
                 }

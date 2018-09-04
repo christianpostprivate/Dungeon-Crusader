@@ -8,13 +8,9 @@ import sprites as spr
 import functions as fn
 import rooms
 import cutscenes as cs
+import sounds as snd
 
 vec = pg.math.Vector2
-
-# testing stuff
-#print(fn.objects_from_tmx('room_1.tmx'))
-#print(fn.tileset_from_tmx('room_1.tmx'))
-#print(spr.export_globals())
 
 
 class Game:
@@ -54,8 +50,10 @@ class Game:
     def loadAssets(self):
         #loading assets (images, sounds)
         self.imageLoader = spr.ImageLoader(self)
+        self.soundLoader = snd.SoundLoader(self)
         try:
             self.imageLoader.load()
+            self.soundLoader.load()
         except Exception:
             traceback.print_exc()
             self.running = False
@@ -102,6 +100,7 @@ class Game:
         self.inventory.inv_items[0][0] = 'sword'
         self.inventory.inv_items[0][1] = 'staff'
         self.inventory.inv_items[0][2] = 'bow'
+        self.inventory.inv_items[0][3] = 'hookshot'
 
         # spawn the player in the middle of the screen/room
         self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
@@ -120,8 +119,8 @@ class Game:
                           self.dungeon.room_index)
         
         # testing
-        spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (0, 0),
-                  loot='smallkey', loot_amount=1)
+        #spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (0, 0),
+                  #loot='smallkey', loot_amount=1)
         
 
         self.run()
@@ -142,8 +141,8 @@ class Game:
 
     def update(self):
         if self.debug:
-            self.caption = (str(self.dungeon.room_current.type) + ' ' + 
-                            str(self.dungeon.room_current.dist))
+            self.caption = (str(self.player.friction) + ' ' + 
+                            str(self.player.vel))
             
         else:
             self.caption = st.TITLE
@@ -179,6 +178,13 @@ class Game:
         elif self.state == 'CUTSCENE':
             self.dialogs.update()
             self.walls.update()
+        
+        
+        # DEBUG STUFF
+        if self.key_down == pg.K_F12:
+            self.caption = 'SAVING DUNGEON IMAGE'
+            pg.display.set_caption(self.caption)
+            self.dungeon.SaveToPNG()
             
 
 
@@ -214,15 +220,22 @@ class Game:
 
                 if event.key == pg.K_F4:
                     self.slowmotion = not self.slowmotion
+                    
+                if event.key == pg.K_p:
+                    self.soundLoader.snd_heart.play()
+                    print('test')
 
 
     def draw(self):
         if self.state != 'TRANSITION':
             # draw the background (tilemap)
             self.screen.blit(self.background, (0, st.GUI_HEIGHT))
+            # call additional draw methods (before drawing)
+            for sprite in self.all_sprites:
+                if hasattr(sprite, 'draw_before'):
+                    sprite.draw_before()
             # draw the sprites
             self.all_sprites.draw(self.screen)
-            
             # draw hitboxes in debug mode
             if self.debug:
                 for sprite in self.all_sprites:
@@ -265,12 +278,6 @@ class Game:
             self.background = fn.tileRoom(self,
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
                           self.dungeon.room_index)
-    
-            # move the player to the other side of the screen
-            self.player.pos = vec(new_pos)
-            self.player.hit_rect.center = vec(new_pos)
-            self.player.spawn_pos = vec(new_pos)
-            self.player.rect.bottom = self.player.hit_rect.bottom
             # scroll the new and old background
             # start positions for the new bg are based on the direction the
             # player is moving
@@ -296,25 +303,40 @@ class Game:
                     self.bg_pos1.y += scroll_speed
                     self.bg_pos2.y += scroll_speed
                     self.bg_pos1.y = min(st.GUI_HEIGHT, self.bg_pos1.y)
+                    self.player.rect.y += scroll_speed
                 elif direction == 'DOWN':
                     self.bg_pos1.y -= scroll_speed
                     self.bg_pos2.y -= scroll_speed
                     self.bg_pos1.y = max(st.GUI_HEIGHT, self.bg_pos1.y)
+                    self.player.rect.y -= scroll_speed
                 elif direction == 'LEFT':
                     self.bg_pos1.x += scroll_speed
                     self.bg_pos2.x += scroll_speed
-                    self.bg_pos1.x = min(0, self.bg_pos1.x)
+                    self.bg_pos1.x = min(0, self.bg_pos1.x)                   
+                    self.player.rect.x += scroll_speed
                 elif direction == 'RIGHT':
                     self.bg_pos1.x -= scroll_speed
                     self.bg_pos2.x -= scroll_speed
-                    self.bg_pos1.x = max(0, self.bg_pos1.x)
+                    self.bg_pos1.x = max(0, self.bg_pos1.x)                   
+                    self.player.rect.x -= scroll_speed
+                    
+                #print(self.player.rect.center)
     
                 self.screen.blit(self.old_background, self.bg_pos2)
                 self.screen.blit(self.background, self.bg_pos1)    
                 self.drawGUI()
+                
+                # for testing, remove later!
+                #self.all_sprites.draw(self.screen)
             else:
                 # put objects in the room after transition
                 fn.transitRoom(self, self.dungeon)
+                # update the player's position
+                self.player.pos = vec(new_pos)
+                self.player.hit_rect.center = vec(new_pos)
+                self.player.spawn_pos = vec(new_pos)
+                self.player.rect.bottom = self.player.hit_rect.bottom
+                # end transtition
                 self.in_transition = False
                 self.state = 'GAME'
 

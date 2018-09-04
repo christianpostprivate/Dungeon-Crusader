@@ -1,19 +1,16 @@
 
 - schwert animation
 - Gegner
-- Items auf A und B legen
-- inventar layout
 - start/game over screen
-- bei horizontalem Raumwechsel clipping fehler beheben
 - Sprite factory mit **kwargs 
 - Gegner Sterbe animationen
 - maxspeed bei Gegnern funktioniert nicht
 - key logic
 - objektpositionen beim Raumwechsel funktionieren nicht
-- room_current as class variable of Dungeon
-- parent class für Schwerter, Stäbe etc
 - enemy stats, drop rates etc in eigene Datei
 - key binding function
+- save map img as png
+
 
 Bekannte Bugs:
 - Rects für Türen und manche Objekte (Schild) skalieren nicht mit GLOBAL SCALE
@@ -34,3 +31,8 @@ Bekannte Bugs:
 *- Positionen von Objekten im Raum speichern
 *- enemy knockback
 *- loch zum reinfallen ('falling' state)
+- bei horizontalem Raumwechsel clipping fehler beheben
+- Items auf A und B legen
+- inventar layout
+- parent class für Schwerter, Stäbe etc
+- room_current as class variable of Dungeon

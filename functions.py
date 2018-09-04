@@ -60,26 +60,26 @@ def screenWrap(player, dungeon):
     #if they do, set their new position based on where they went
     index = list(dungeon.room_index)
     direction = ''
-    new_pos = vec(player.rect.center)
-    if player.rect.left < st.TILESIZE:
+    new_pos = vec(player.hit_rect.center)
+    if player.hit_rect.left < st.TILESIZE:
         direction = 'LEFT'
         player.vel = vec(0, 0)
-        new_pos.x  = st.WIDTH - player.rect.width - st.TILESIZE
+        new_pos.x  = st.WIDTH - player.hit_rect.width - st.TILESIZE
         index[1] -= 1
-    if player.rect.right > st.WIDTH - st.TILESIZE:
+    elif player.hit_rect.right > st.WIDTH - st.TILESIZE:
         direction = 'RIGHT'
         player.vel = vec(0, 0)
         new_pos.x = player.hit_rect.width + st.TILESIZE
         index[1] += 1
-    if player.rect.top < st.GUI_HEIGHT + st.TILESIZE:
+    elif player.hit_rect.top < st.GUI_HEIGHT + st.TILESIZE:
         player.vel = vec(0, 0)
         direction = 'UP'
         new_pos.y = st.HEIGHT - player.hit_rect.height - st.TILESIZE
         index[0] -= 1
-    if player.rect.bottom > st.HEIGHT - st.TILESIZE:
+    elif player.hit_rect.bottom > st.HEIGHT - st.TILESIZE:
         player.vel = vec(0, 0)
         direction = 'DOWN'
-        new_pos.y = player.rect.height + st.GUI_HEIGHT + st.TILESIZE
+        new_pos.y = player.hit_rect.height + st.GUI_HEIGHT + st.TILESIZE
         index[0] += 1
     try:
         return direction, index, new_pos
@@ -100,8 +100,8 @@ def transitRoom(game, dungeon):
     for sprite in game.all_sprites:
         if sprite != game.player:
             # store the current objects' data
-            if hasattr(sprite, 'updateData'):
-                sprite.updateData()
+            #if hasattr(sprite, 'updateData'):
+                #sprite.updateData()
             if hasattr(sprite, 'data'):
                 room_prev.object_data.append(sprite.data)
             sprite.kill()
@@ -281,7 +281,7 @@ def objects_from_tmx(filename):
         for key, value in o.items():
             try:
                 o[key] = int(value) * st.GLOBAL_SCALE
-            except:
+            except ValueError:
                 pass
     
     return objects
