@@ -63,7 +63,7 @@ DOOR_POSITIONS = {
 
 
 # list of tmx file numbers to pick from
-TILEMAP_FILES = [1, 2, 5, 8, 9, 10]
+TILEMAP_FILES = [1, 2, 5, 8, 9, 10, 11, 12, 13]
 #TILEMAP_FILES = [0]
 
 TM_POOL = []

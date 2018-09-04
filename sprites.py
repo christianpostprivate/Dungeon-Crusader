@@ -449,8 +449,8 @@ class Player(pg.sprite.Sprite):
         self.hit_rect.centery = self.pos.y
         fn.collide_with_walls(self, self.game.walls, 'y')
 
-        # position the hitrect at the bottom of the image
-        self.rect.midbottom = self.hit_rect.midbottom
+        # position the rect at the bottom of the hitbox
+        self.rect.bottom = self.hit_rect.bottom + 1
         
         # restrain items between 0 and max
         self.hp = max(0, min(self.hp, self.max_hp))
@@ -1129,9 +1129,10 @@ class Hookshot(AttackItem):
         self.spr_chain = self.game.imageLoader.hookshot_strip[1]
         self.hit = False
         self.grabbed = None
+        self.pulling = None
         
         self.pos = vec(self.player.pos)
-        self.maxlen = 5 * st.TILESIZE
+        self.maxlen = 6 * st.TILESIZE
         
         self.speed = 3 * st.GLOBAL_SCALE
         self.vel = vec(0, -1).rotate(-self.rot)
@@ -1156,6 +1157,9 @@ class Hookshot(AttackItem):
             if wall_hits:
                 if self.hit_rect.colliderect(wall_hits[0].hit_rect):
                     self.hit = True
+                    if isinstance(wall_hits[0], Block):
+                        # if hitting a block, pull the player to it
+                        self.pulling = wall_hits[0]
             if enemy_hits:
                 if self.hit_rect.colliderect(enemy_hits[0].hit_rect):
                     enemy_hits[0].knockback(self, 1, 0.2)
@@ -1170,16 +1174,25 @@ class Hookshot(AttackItem):
                 self.hit = True
             
         else:
-            self.pos -= self.vel
-            self.rect.center = self.pos
-            self.hit_rect.center = self.rect.center
-            if self.hit_rect.colliderect(self.player.rect):
-                self.kill()
-                self.player.state = 'IDLE'
+            if not self.pulling:
+                self.pos -= self.vel
+                self.rect.center = self.pos
+                self.hit_rect.center = self.rect.center
+                if self.hit_rect.colliderect(self.player.rect):
+                    self.kill()
+                    self.player.state = 'IDLE'
+                
+                # pull grabbed item towards player
+                if self.grabbed:
+                    self.grabbed.rect.center = self.pos
             
-            # pull grabbed item towards player
-            if self.grabbed:
-                self.grabbed.rect.center = self.pos
+            # pull the player towards a block
+            elif self.pulling:
+                self.player.state = 'HOOKSHOT'
+                self.player.pos += self.vel
+                if pg.sprite.collide_rect(self.player, self.pulling):
+                    self.kill()
+                    self.player.state = 'IDLE'
         
         
     def draw_before(self):
