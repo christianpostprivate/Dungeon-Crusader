@@ -3,8 +3,10 @@ Start main.py to play
 ### Controls:
 | key | action|
 |-----|-------|
-| ARROW KEYS or WSAD | move the player|
-| SPACE | Sword attack |
+| ARROW KEYS| move the player|
+| Y | Item A |
+| X | Item B |
+| ENTER | Interact (Doors, Chest etc.) |
 | ESC | open inventory |
 | F6 | quicksave (might crash the game!)|
 | F9| quickload |
@@ -15,3 +17,4 @@ Start main.py to play
 |F4 | slow motion mode (5 FPS)|
 |PAGEUP/PAGEDOWN | change hp/mana|
 |F12 | save dungeon image |
+| V | Display/hide enemy aggro radius|
