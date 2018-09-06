@@ -5,6 +5,7 @@ import traceback
 
 import settings as st
 import functions as fn
+import sprites as spr
 
 vec = pg.math.Vector2
 
@@ -27,8 +28,16 @@ class Room:
         else:
             # pop room layout from rooms pool
             self.tm_file = 'room_{}.tmx'.format(st.TM_POOL.pop())
-            
+        
+        # a list of doors that are locked
         self.locked_doors = []
+        # checks if room is shut (all doors are closed)
+        # MEMO make this also a list so that particular doors can be shut
+        self.shut = False
+        # a list of sprites that represent the closed doors
+        self.shut_doors = []
+        # boolean for if the player has done all the tasks in a room
+        self.cleared = False
         
         self.build()
         
@@ -144,7 +153,31 @@ class Room:
             self.layout.append({'id': 0, 'name': 'wall', 'x': 672, 'y': 264,  
                                 'width': 48, 'height': 48})
 
+    
+    def shutDoors(self):
+        '''
+        Closes all doors of the room
+        --> instanciate a solid Door object in each entrance
+        MEMO: MAYBE PUT THIS IN THE DUNGEON CLASS IDK
+        '''
+        for door in self.doors:
+            pos = (st.DOOR_POSITIONS[door][0], st.DOOR_POSITIONS[door][1] 
+                    + st.GUI_HEIGHT)
+            d = spr.Door(self.game, pos, direction=door)
+            self.shut_doors.append(d)
+        
+        self.shut = True
+        
+    
+    def openDoors(self):
+        '''
+        delets all door sprites
+        '''
+        for d in self.shut_doors:
+            d.kill()
+        self.shut = False
                    
+
 
 class Dungeon:
     def __init__(self, game, size):

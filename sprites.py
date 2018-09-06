@@ -6,7 +6,6 @@ from random import choice, choices
 
 import functions as fn
 import settings as st
-#import rooms as rm
 import cutscenes as cs
 
 vec = pg.math.Vector2
@@ -182,6 +181,10 @@ class ImageLoader:
         
         self.projectiles = fn.img_list_from_strip('projectiles.png', 8, 8, 
                                     0, 7, size=st.TILESIZE_SMALL)
+        
+        self.effects = {
+                'blink1': fn.img_list_from_strip('blink1.png', 16, 16, 0, 4)
+                }
         
         self.gui_img = {
             'background': fn.loadImage('inventory_bg.png'),
@@ -450,7 +453,11 @@ class Player(pg.sprite.Sprite):
         fn.collide_with_walls(self, self.game.walls, 'y')
 
         # position the rect at the bottom of the hitbox
+        # leave 1 pixel space so that the game can detect collision
+        # with solid objects
+        self.rect.midbottom = self.hit_rect.midbottom
         self.rect.bottom = self.hit_rect.bottom + 1
+        
         
         # restrain items between 0 and max
         self.hp = max(0, min(self.hp, self.max_hp))
@@ -676,6 +683,9 @@ class Door(Solid):
         self.image = self.game.imageLoader.door_image_dict[kwargs['direction']]
         self.size = self.image.get_size()
         
+        self.rect = pg.Rect(self.pos, self.size)
+        self.hit_rect = self.rect.copy()
+        
 
 class Keydoor(Solid):
     '''
@@ -758,6 +768,8 @@ class Hole(pg.sprite.Sprite):
     def update(self):
         # detect collision
         player = self.game.player
+        if player.state == 'HOOKSHOT':
+            return
         if player.state != 'FALL' and not player.eff_by_hole:
             if fn.collide_hit_rect(player, self):
                 # Attract the player to the center of the hole
@@ -1145,24 +1157,36 @@ class Hookshot(AttackItem):
 
 
     def update(self):
+        # POSSIBLE BUGS:
+        # WHEN PLAYER GETS HIT DURING SHOOTING,
+        # HOOKSHOT MAY NOT BE ABLE TO RETURN TO PLAYER       
         if not self.hit:
             self.player.state = 'HOOKSHOT'
             self.pos += self.vel
             self.rect.center = self.pos
             self.hit_rect.center = self.rect.center
             # collide with walls, enemies, items etc
+            # REFACTOR THIS MAYBE WITH ALL_SPRITES AS GROUP COLLISION
+            # NEEDS ONLY 1 LIST
             wall_hits = pg.sprite.spritecollide(self, self.game.walls, False)
             enemy_hits = pg.sprite.spritecollide(self, self.game.enemies, False)
             item_hits = pg.sprite.spritecollide(self, self.game.item_drops, False)
             if wall_hits:
-                if self.hit_rect.colliderect(wall_hits[0].hit_rect):
-                    self.hit = True
-                    if isinstance(wall_hits[0], Block):
-                        # if hitting a block, pull the player to it
-                        self.pulling = wall_hits[0]
+                for wall in wall_hits:
+                    if self.hit_rect.colliderect(wall.hit_rect):
+                        self.hit = True
+                        if isinstance(wall, Block) or isinstance(wall, Chest):
+                            # if hitting a block or chest, pull the player to it
+                            self.pulling = wall
+                        else:
+                            # create particle
+                            Particle(self.game, vec(self.pos), 
+                                     self.game.imageLoader.effects['blink1'],
+                                     50)
             if enemy_hits:
                 if self.hit_rect.colliderect(enemy_hits[0].hit_rect):
-                    enemy_hits[0].knockback(self, 1, 0.2)
+                    # stun the enemy
+                    enemy_hits[0].freeze(2.5 * st.FPS)
                     self.hit = True
             if item_hits:
                 if self.hit_rect.colliderect(item_hits[0].hit_rect):
@@ -1190,13 +1214,18 @@ class Hookshot(AttackItem):
             elif self.pulling:
                 self.player.state = 'HOOKSHOT'
                 self.player.pos += self.vel
-                if pg.sprite.collide_rect(self.player, self.pulling):
+                # BUGGED
+                # MEMO: change collision to player hit rect
+                wall_hits = pg.sprite.spritecollide(self.player, 
+                                                    self.game.walls, False)
+                if wall_hits:
                     self.kill()
                     self.player.state = 'IDLE'
         
         
     def draw_before(self):
-        n = 5
+	# draw n chain links between the hookshot head and the player
+        n = 10
         for i in range(n):
             # calculate a vector v from self to player
             v = self.pos - self.player.pos
@@ -1441,6 +1470,7 @@ class Enemy(pg.sprite.Sprite):
         self.acc = vec(0, 0)
         self.friction = 0.1
         self.state = 'IDLE'
+        self.freeze_frames = 0
         
 
         # default values (change in individual init after super().__init__())
@@ -1546,6 +1576,11 @@ class Enemy(pg.sprite.Sprite):
         self.collide_with_player()
         if self.hp <= 0:
             self.destroy()
+            
+        if self.state == 'FROZEN':
+            self.freeze_frames -= 1
+            if self.freeze_frames <= 0:
+                self.state = 'WALKING'
                        
         self.animate()
         
@@ -1569,8 +1604,12 @@ class Enemy(pg.sprite.Sprite):
                                 special_flags=pg.BLEND_RGBA_MULT)
             except:
                 self.state = 'WALKING'
-                
         
+        elif self.state == 'FROZEN':
+            # tint the image blue
+            self.image = self.lastimage.copy()
+            self.image.fill((0, 0, 150), special_flags=pg.BLEND_RGB_ADD)
+                      
         elif self.state == 'IDLE':
             if hasattr(self, 'idle_frames'):
                 if now - self.anim_update > self.anim_speed:
@@ -1583,14 +1622,15 @@ class Enemy(pg.sprite.Sprite):
     def collide_with_player(self):
         # detect collision
         player = self.game.player
-        if fn.collide_hit_rect(player, self) and player.state != 'HITSTUN':
-            player.knockback(self, self.kb_time, self.kb_intensity)
-            player.hp -= self.damage
+        if fn.collide_hit_rect(player, self):
+            if player.state != 'HITSTUN' and player.state != 'HOOKSHOT':
+                player.knockback(self, self.kb_time, self.kb_intensity)
+                player.hp -= self.damage
             
     
     def knockback(self, other, time, intensity):
         if self.state != 'HITSTUN':
-            self.vel = vec(0, 0)
+            self.vel *= 0
             # calculate vector from other to self
             knockdir = self.pos - other.pos
             if knockdir.length_squared() > 0:
@@ -1601,6 +1641,14 @@ class Enemy(pg.sprite.Sprite):
             self.state = 'HITSTUN'
             self.lastimage = self.image.copy()
             self.damage_alpha = iter(st.DAMAGE_ALPHA * time)
+            
+    
+    def freeze(self, frames):
+        if self.state != 'FROZEN':
+            self.lastimage = self.image.copy()
+            self.vel *= 0
+            self.state = 'FROZEN'
+            self.freeze_frames = frames
         
     
     def destroy(self):
@@ -1768,4 +1816,36 @@ class Bat(Enemy):
                     self.timer = 0
         
 
+# ------------ Particles ------------------------------------------------------
+                    
+class Particle(pg.sprite.Sprite):
+    '''
+    Sprite that plays an animation from a given image list
+    and then destroys itself
+    '''
+    def __init__(self, game,  pos, images, delay):
+        self.group = game.all_sprites
+        pg.sprite.Sprite.__init__(self)
+        self.layer = -1
+        self.group.add(self, layer=self.layer)
+        self.game = game
+
+        self.timer = 0
+        self.frame = 0
+        self.images = images
+        self.image = self.images[0]
+        self.rect = self.image.get_rect()
+        self.game = game
+        self.pos = pos
+        self.delay = delay
         
+        
+    def update(self):
+        self.rect.center = self.pos
+        now = pg.time.get_ticks()      
+        if self.frame == len(self.images):
+            self.kill()
+        if now - self.timer > self.delay:
+            self.timer = now
+            self.image = self.images[self.frame]
+            self.frame = self.frame + 1

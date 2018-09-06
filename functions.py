@@ -288,6 +288,10 @@ def objects_from_tmx(filename):
 
 
 def draw_text(surface, text, file, size, color, pos, align='nw'):
+    '''
+    draws the text string at a given position with the given text file
+    might be too performance intensive
+    '''
     x = pos.x
     y = pos.y
     font = pg.font.Font(file, size)
@@ -313,3 +317,4 @@ def draw_text(surface, text, file, size, color, pos, align='nw'):
     elif align == 'center':
         text_rect.center = (x, y)
     surface.blit(text_surface, text_rect)
+    

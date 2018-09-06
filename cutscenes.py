@@ -21,8 +21,14 @@ class Textbox(pg.sprite.Sprite):
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
 
-        self.size = (180 * st.GLOBAL_SCALE, 86 * st.GLOBAL_SCALE)
+        #self.size = (180 * st.GLOBAL_SCALE, 86 * st.GLOBAL_SCALE)
+        self.size = (180 * st.GLOBAL_SCALE, 64 * st.GLOBAL_SCALE)
         self.pos = vec(pos)
+        # set position based on players position
+        if self.game.player.pos.y > (st.HEIGHT - st.GUI_HEIGHT) / 2 + st.GUI_HEIGHT:
+            self.pos.y *= 0.5
+        else:
+            self.pos.y *= 1.25
         self.image_ori = pg.Surface(self.size)
         self.image_ori.fill(st.BLACK)
         self.rect = self.image_ori.get_rect()
@@ -171,6 +177,36 @@ class Arrow(pg.sprite.Sprite):
         
     def draw(self, surface):
         surface.blit(self.image, self.rect)
+        
+        
+
+def checkFight(game):
+    '''
+    closes the doors and opens them when player defeats all enemies
+    '''
+
+    room = game.dungeon.room_current
+    # if no enemies are in that room, mark this room as cleared and return
+    if len(game.enemies) == 0:
+        room.openDoors()
+        room.cleared = True
+        return
+    # check if the room's doors are closed
+    if room.shut == False:
+        # check player's position
+        margin_x = 5 * st.TILESIZE_SMALL
+        margin_y = 5 * st.TILESIZE_SMALL + st.GUI_HEIGHT
+        rect = pg.Rect((margin_x, margin_y), (st.WIDTH - 2 *  margin_x, 
+                       st.HEIGHT - st.GUI_HEIGHT - margin_y))
+        if rect.collidepoint(game.player.pos):
+            # player is far enough in the room to shut the doors
+            room.shutDoors()
+    else:
+        # if room is shut, check for the number of enemies
+        if len(game.enemies) == 0:
+            # if all enemies are defeated, open the doors
+            room.openDoors()
+            room.cleared = True
         
 
         

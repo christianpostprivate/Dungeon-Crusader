@@ -35,7 +35,9 @@ class Game:
         self.debug = False
         self.slowmotion = False
         self.draw_vectors = False
+        self.show_player_stats = False
         self.caption = ''
+        self.debug_font = pg.font.Font(st.FONT, 24)
 
         self.key_down = None
         self.state = 'GAME'
@@ -119,8 +121,11 @@ class Game:
                           self.dungeon.room_index)
         
         # testing
-        #spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (0, 0),
-                  #loot='smallkey', loot_amount=1)
+        spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (st.TILESIZE,
+                  st.TILESIZE), loot='smallkey', loot_amount=1)
+        
+        spr.Chest(self, (5 * st.TILESIZE, 5 * st.TILESIZE), (st.TILESIZE,
+                  st.TILESIZE), loot='smallkey', loot_amount=1)
         
 
         self.run()
@@ -170,6 +175,10 @@ class Game:
                 self.dungeon.room_index = self.new_room
                 self.state = 'TRANSITION'
                 
+            # When in a fight, shut the doors:
+            if not self.dungeon.room_current.cleared:
+                cs.checkFight(self)
+                
         elif self.state == 'MENU':
             self.inventory.update()
             
@@ -218,9 +227,18 @@ class Game:
 
                 if event.key == pg.K_h:
                     self.debug = not self.debug
+                
+                # REMOVE THIS!
+                if event.key == pg.K_k:
+                    # kill all enemies
+                    for s in self.enemies:
+                        s.kill()
 
                 if event.key == pg.K_F4:
                     self.slowmotion = not self.slowmotion
+                
+                if event.key == pg.K_F1:
+                    self.show_player_stats = not self.show_player_stats
                     
                 if event.key == pg.K_p:
                     self.soundLoader.snd_heart.play()
@@ -237,6 +255,10 @@ class Game:
                     sprite.draw_before()
             # draw the sprites
             self.all_sprites.draw(self.screen)
+            # draw the inventory
+            self.drawGUI()
+            
+            # ----- DEBUG STUFF ----- #
             # draw hitboxes in debug mode
             if self.debug:
                 for sprite in self.all_sprites:
@@ -249,9 +271,22 @@ class Game:
                             pg.draw.circle(self.screen, st.RED, 
                                         (int(sprite.pos.x), int(sprite.pos.y)), 
                                         sprite.aggro_dist, 1)
-    
-            # draw the inventory
-            self.drawGUI()
+                    
+            if self.show_player_stats:
+                strings = [str(self.player.state), 
+                           ('(' + str(int(self.player.pos.x)) + ', '
+                              + str(int(self.player.pos.y)) + ')'),
+                           'Room: ' + str(self.dungeon.room_current.pos),
+                           'type: ' + str(self.dungeon.room_current.type)]
+                for i in range(len(strings)):
+                    # show debug infos
+                    pos = vec(16, st.GUI_HEIGHT + 16 + (i * 24 + 8))
+                    text_surface = self.debug_font.render(strings[i], 
+                                            False, st.WHITE)
+                    text_rect = text_surface.get_rect()
+                    text_rect.topleft = pos
+                    self.screen.blit(text_surface, text_rect)
+
 
         pg.display.update()
 
@@ -263,7 +298,6 @@ class Game:
         
         self.inventory.map_img = self.dungeon.blitRooms()
         self.inventory.draw() 
-
 
 
     def RoomTransition(self, new_pos, direction):
@@ -340,6 +374,8 @@ class Game:
                 # end transtition
                 self.in_transition = False
                 self.state = 'GAME'
+                
+        
 
 g = Game()
 try:
