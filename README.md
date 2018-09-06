@@ -23,4 +23,3 @@ Requires python 3.x
 |PAGEUP/PAGEDOWN | add/remove items|
 |F12 | save dungeon image as png (freezes the game) |
 | V | Display/hide enemy aggro radius|
-| K | kill all enemies |

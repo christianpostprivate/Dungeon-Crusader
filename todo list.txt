@@ -9,7 +9,10 @@
 - objektpositionen beim Raumwechsel funktionieren nicht
 - enemy stats, drop rates etc in eigene Datei
 - key binding function
-- save map img as png
+- Items: Lamp (place a fire sprite that damages enemies & light torches)
+- Items: 
+
+
 
 
 Bekannte Bugs:
@@ -36,3 +39,4 @@ Bekannte Bugs:
 - inventar layout
 - parent class für Schwerter, Stäbe etc
 - room_current as class variable of Dungeon
+- save map img as png
