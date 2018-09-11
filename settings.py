@@ -42,8 +42,9 @@ PLAYER_FRICTION = 0.1 * GLOBAL_SCALE
 PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 
 # player hp 
-PLAYER_HP_START = 14.0
+PLAYER_HP_START = 7.0
 PLAYER_HP_MAX = 14.0
+PLAYER_HP_ROW = 7
 
 
 # possible rooms for picking

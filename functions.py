@@ -167,6 +167,25 @@ def img_list_from_strip(filename, width, height, startpos, number, scale=True,
     return img_set
 
 
+def img_list_from_strip2(filename, width, height, startpos, number):
+    '''
+    make this the default?
+    '''
+    file = path.join(st.IMAGE_FOLDER, filename)
+    try:
+        img = pg.image.load(file).convert_alpha()
+    except Exception:
+        traceback.print_exc()
+        return
+    img_set = []
+    for i in range(startpos, (startpos + number)):
+        rect = ((i * width, 0), (width, height))
+        subimg = pg.transform.scale(img.subsurface(rect), 
+                    (width * st.GLOBAL_SCALE, height * st.GLOBAL_SCALE))
+        img_set.append(subimg)
+    return img_set
+
+
 def getSubimg(image, width, height, topleft, size=(st.TILESIZE, st.TILESIZE)):
 
     rect = (topleft, (width, height))

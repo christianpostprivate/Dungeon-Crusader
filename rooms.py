@@ -452,6 +452,12 @@ class Dungeon:
                 print('Endboss in', room.pos)
                 room.type = 'endboss'
                 pos = room.pos
+                room.tm_file = 'room_0.tmx'
+                room.build()
+                 # put boss in room
+                room.layout.append({'id': 0, 'name': 'sorcerer_boss', 
+                    'x': 15 * st.TILESIZE_SMALL, 'y': 12 * st.TILESIZE_SMALL, 
+                    'width': 48, 'height': 48})
                 break
         
         # find the adjacent room and lock it
