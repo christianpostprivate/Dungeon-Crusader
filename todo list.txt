@@ -4,20 +4,17 @@
 - start/game over screen
 - Sprite factory mit **kwargs 
 - Gegner Sterbe animationen
-- maxspeed bei Gegnern funktioniert nicht
 - key logic
-- objektpositionen beim Raumwechsel funktionieren nicht
 - enemy stats, drop rates etc in eigene Datei
 - key binding function
 - Items: Lamp (place a fire sprite that damages enemies & light torches)
-- Items: 
-
 
 
 
 Bekannte Bugs:
 - Rects für Türen und manche Objekte (Schild) skalieren nicht mit GLOBAL SCALE
-
+- Clipping wenn Türen automatisch schließen
+- Magic Staff feuert alles auf einmal ab
 
 
 
@@ -40,3 +37,5 @@ Bekannte Bugs:
 - parent class für Schwerter, Stäbe etc
 - room_current as class variable of Dungeon
 - save map img as png
+- maxspeed bei Gegnern funktioniert nicht
+- objektpositionen beim Raumwechsel funktionieren nicht

@@ -37,7 +37,7 @@ class Game:
         self.draw_vectors = False
         self.show_player_stats = False
         self.caption = ''
-        self.debug_font = pg.font.Font(st.FONT, 24)
+        #self.debug_font = pg.font.Font(st.FONT, 24)
 
         self.key_down = None
         self.state = 'GAME'
@@ -95,17 +95,28 @@ class Game:
             self.dungeon.tileset = self.saveGame.data['tileset']
         else:
             self.dungeon.create(rng_seed=None)
-     
+            
         self.inventory = spr.Inventory(self)
-        
-        # ADD SOME ITEMS FOR TESTING -------------------------
-        self.inventory.inv_items[0][0] = 'sword'
-        self.inventory.inv_items[0][1] = 'staff'
-        self.inventory.inv_items[0][2] = 'bow'
-        self.inventory.inv_items[0][3] = 'hookshot'
 
         # spawn the player in the middle of the room
         self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
+        
+        # ADD SOME ITEMS FOR TESTING -------------------------
+
+        self.inventory.addItem(spr.Sword(self, self.player))
+        self.inventory.addItem(spr.Hookshot(self, self.player))
+        b = spr.Bottle(self, self.player)
+        b.fill('red_potion')
+        self.inventory.addItem(b)
+        b = spr.Bottle(self, self.player)
+        b.fill('green_potion')
+        self.inventory.addItem(b)
+        self.inventory.addItem(spr.Staff(self, self.player))
+        self.inventory.addItem(spr.Bow(self, self.player))
+        b = spr.Bottle(self, self.player)
+        b.fill('blue_potion')
+        self.inventory.addItem(b)
+        
 
         # load settings
         if self.loaded:
@@ -121,12 +132,14 @@ class Game:
                           self.dungeon.room_index)
         
         # testing
+        '''
         spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (st.TILESIZE,
                   st.TILESIZE), loot='smallkey', loot_amount=1)
         
         spr.Chest(self, (5 * st.TILESIZE, 5 * st.TILESIZE), (st.TILESIZE,
-                  st.TILESIZE), loot='smallkey', loot_amount=1)
+                  st.TILESIZE), loot='smallkey', loot_amount=1)'''
         
+        #spr.Sorcerer_boss(self, (st.WIDTH // 2, st.HEIGHT // 1.5))
 
         self.run()
 
@@ -229,7 +242,7 @@ class Game:
                     self.debug = not self.debug
                 
                 # REMOVE THIS!
-                if event.key == pg.K_k:
+                if event.key == pg.K_k and self.debug:
                     # kill all enemies
                     for s in self.enemies:
                         s.kill()
@@ -262,7 +275,8 @@ class Game:
             # draw hitboxes in debug mode
             if self.debug:
                 for sprite in self.all_sprites:
-                    pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
+                    if hasattr(sprite, 'hit_rect'):
+                        pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
                     if isinstance(sprite, spr.Keydoor):
                         pg.draw.rect(self.screen, st.GREEN, 
                                      sprite.interact_rect, 1)

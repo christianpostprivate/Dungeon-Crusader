@@ -198,7 +198,7 @@ def checkFight(game):
         margin_y = 5 * st.TILESIZE_SMALL + st.GUI_HEIGHT
         rect = pg.Rect((margin_x, margin_y), (st.WIDTH - 2 *  margin_x, 
                        st.HEIGHT - st.GUI_HEIGHT - margin_y))
-        if rect.collidepoint(game.player.pos):
+        if rect.colliderect(game.player.rect):
             # player is far enough in the room to shut the doors
             room.shutDoors()
     else:

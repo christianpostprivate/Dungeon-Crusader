@@ -16,6 +16,8 @@ LEFT = (-1, 0)
 RIGHT = (1, 0)
 
 vecNull = vec(0, 0)
+vecR = vec(RIGHT)
+vecL = vec(LEFT)
 
 PLACEHOLDER_IMG = pg.Surface((st.TILESIZE, st.TILESIZE))
 PLACEHOLDER_IMG.fill(st.RED)
@@ -151,22 +153,36 @@ class ImageLoader:
             'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 4),
             'slime_small': fn.img_list_from_strip('slime_strip.png', 16, 16, 
                                                  0, 3, size=st.TILESIZE_SMALL),
-            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 3)
+            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 3),
+            'sorcerer_boss': fn.img_list_from_strip2('evil_sorcerer_strip.png', 
+                                                    32, 48, 0, 5)
             }
         
         self.inv_item_strip = fn.img_list_from_strip('inv_item_strip.png', 16, 16, 
-                                                 0, 25, size=st.TILESIZE)        
+                                                 0, 25, size=st.TILESIZE) 
+        
+        self.bottles_strip = fn.img_list_from_strip('bottles_strip.png', 16, 16,
+                                                    0, 10, size=st.TILESIZE)
+        
+        self.bottle_img = {
+                'empty': self.bottles_strip[0],
+                'red_potion': self.bottles_strip[1],
+                'green_potion': self.bottles_strip[2],
+                'blue_potion': self.bottles_strip[3]
+                }
+        
         self.inv_item_img = {
                 'sword': self.inv_item_strip[0],
                 'staff': self.inv_item_strip[1],
                 'bow': self.inv_item_strip[2],
-                'hookshot': self.inv_item_strip[3]
+                'hookshot': self.inv_item_strip[3],
+                'bottle': self.bottles_strip[0]
                 }
         
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
                                                  0, 4, size=st.TILESIZE_SMALL)
         self.hookshot_strip = fn.img_list_from_strip('hookshot.png', 16, 16,
-                                                     0, 2, size=st.TILESIZE)        
+                                                     0, 2, size=st.TILESIZE)
         
         self.item_img = {
             'sword': fn.loadImage('sword.png'),
@@ -273,16 +289,8 @@ class Player(pg.sprite.Sprite):
         self.mana = 10
         self.max_mana = 10
         
-        self.items = {
-                'sword': lambda: Sword(self.game, self),
-                'staff': lambda: Staff(self.game, self),
-                'bow': lambda: Bow(self.game, self),
-                'hookshot': lambda: Hookshot(self.game, self)
-                }
-        
-        self.itemA = 'sword'
-        self.itemB = 'hookshot'
- 
+        self.itemA = None
+        self.itemB = None
         self.item_using = None
 
         self.anim_update = 0
@@ -447,10 +455,15 @@ class Player(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = self.pos
         # collision detection
-        self.hit_rect.centerx = self.pos.x
-        fn.collide_with_walls(self, self.game.walls, 'x')
-        self.hit_rect.centery = self.pos.y
-        fn.collide_with_walls(self, self.game.walls, 'y')
+        if self.state != 'HOOKSHOT':
+            self.hit_rect.centerx = self.pos.x
+            fn.collide_with_walls(self, self.game.walls, 'x')
+            self.hit_rect.centery = self.pos.y
+            fn.collide_with_walls(self, self.game.walls, 'y')
+        else:
+            # handle collision in hookshot object
+            #self.hit_rect.center = self.pos
+            pass
 
         # position the rect at the bottom of the hitbox
         # leave 1 pixel space so that the game can detect collision
@@ -544,12 +557,12 @@ class Player(pg.sprite.Sprite):
             
     def useA(self):
         if not self.game.all_sprites.has(self.item_using):
-            self.item_using = self.items[self.itemA]()
+            self.item_using = self.itemA.use()
     
     
     def useB(self):
         if not self.game.all_sprites.has(self.item_using):
-            self.item_using = self.items[self.itemB]()
+            self.item_using = self.itemB.use()
             
     
     def stun(self, time):
@@ -670,7 +683,9 @@ class Chest(Solid):
                            self.text)
                 self.game.player.item_counts[self.loot] += self.loot_amount
             else:
-                self.game.state = 'GAME'
+                if (self.game.state == 'CUTSCENE' and 
+                    len(self.game.dialogs) == 0):
+                    self.game.state = 'GAME'
                     
 
 class Door(Solid):
@@ -863,12 +878,12 @@ class Inventory(pg.sprite.Sprite):
         player = self.game.player
         for i in range(int(player.max_hp)):
             # calculate position
-            if i < st.PLAYER_HP_MAX // 2:
+            if i < st.PLAYER_HP_ROW:
                 pos = (6 * st.GLOBAL_SCALE + 10 * i * st.GLOBAL_SCALE, 
                       (st.HEIGHT - 34 * st.GLOBAL_SCALE))
             else:
-                pos = (6 * st.GLOBAL_SCALE + 10 * (i - 7) * st.GLOBAL_SCALE, 
-                      (st.HEIGHT - 24 * st.GLOBAL_SCALE))
+                pos = (6 * st.GLOBAL_SCALE + 10 * (i - st.PLAYER_HP_ROW) 
+                       * st.GLOBAL_SCALE, (st.HEIGHT - 24 * st.GLOBAL_SCALE))
 
             # draw hearts:
             if i < int(player.hp):
@@ -1010,19 +1025,59 @@ class Inventory(pg.sprite.Sprite):
                 pos.x = (24 + 24 * i) * st.GLOBAL_SCALE
                 pos.y = (40 + 24 * j) * st.GLOBAL_SCALE
                 
-                if self.inv_items[j][i]:
-                    self.image.blit(self.game.imageLoader.inv_item_img[
-                            self.inv_items[j][i]], pos)
+                item = self.inv_items[j][i]
+                
+                if item:
+                    self.image.blit(item.inv_image, pos)
         
         # draw item in slots A and B
         if player.itemA:
-            imageA = self.game.imageLoader.inv_item_img[player.itemA]
+            imageA = player.itemA.inv_image
             posA = (111 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)
             self.image.blit(imageA, posA)
+
         if player.itemB:
-            imageB = self.game.imageLoader.inv_item_img[player.itemB]        
+            imageB = player.itemB.inv_image      
             posB = (135 * st.GLOBAL_SCALE, 216 * st.GLOBAL_SCALE)   
             self.image.blit(imageB, posB)
+            
+    
+    def addItem(self, item):
+        # find first emtpy slot (from top left to bottom right)
+        # then put the item there
+        for i in range(self.inv_size[0]):
+            for j in range(self.inv_size[1]):
+                if self.inv_items[i][j] == None:
+                    self.inv_items[i][j] = item
+                    return
+
+
+class Bottle:
+    def __init__(self, game, player):
+        self.player = player
+        self.game = game
+        self.content = None
+        self.inv_image = self.game.imageLoader.bottle_img['empty']
+    
+    
+    def fill(self, substance):
+        if self.content == None:
+            self.content = substance
+            self.inv_image = self.game.imageLoader.bottle_img[substance]
+    
+    
+    def use(self):
+        if self.content == 'red_potion':
+            self.player.hp = self.player.max_hp
+        elif self.content == 'green_potion':
+            self.player.mana = self.player.max_mana
+        elif self.content == 'blue_potion':
+            self.player.mana = self.player.max_mana
+            self.player.hp = self.player.max_hp
+        
+        self.inv_image = self.game.imageLoader.bottle_img['empty']
+        self.content = None
+
                 
                 
 class AttackItem(pg.sprite.Sprite):
@@ -1030,12 +1085,24 @@ class AttackItem(pg.sprite.Sprite):
         self.group = game.all_sprites
         self.layer = player.layer
         pg.sprite.Sprite.__init__(self)
-        self.group.add(self, layer=self.layer)
+        #self.group.add(self, layer=self.layer)
         self.player = player
         self.game = game
         
         self.image = self.game.imageLoader.item_img[self.type]
+        self.inv_image = self.game.imageLoader.inv_item_img[self.type]
 
+
+    def update(self):
+        # delete sprite if animation is over
+        if not self.player.state == 'USE_A' and not self.player.state == 'USE_B':
+            self.game.all_sprites.remove(self)
+            
+    
+    def use(self):
+        self.image = self.game.imageLoader.item_img[self.type].copy()
+        self.group.add(self, layer=self.layer)
+        
         self.pos = vec(0, 0)
         self.rot = 0
 
@@ -1067,12 +1134,8 @@ class AttackItem(pg.sprite.Sprite):
         self.rect.topleft = self.pos
         self.hit_rect = self.rect
         self.hit_rect.center = self.rect.center
-
-
-    def update(self):
-        # delete sprite if animation is over
-        if not self.player.state == 'USE_A' and not self.player.state == 'USE_B':
-            self.game.all_sprites.remove(self)
+    
+    
 
 
 class Sword(AttackItem):
@@ -1099,7 +1162,6 @@ class Staff(AttackItem):
     def __init__(self, game, player):
         self.type = 'staff'
         super().__init__(game, player)
-        self.fired = False
 
 
     def update(self):
@@ -1112,13 +1174,18 @@ class Staff(AttackItem):
         
         super().update()
         
+    
+    def use(self):
+        super().use()
+        self.fired = False
+        
 
 
 class Bow(AttackItem):
     def __init__(self, game, player):
         self.type = 'bow'
         super().__init__(game, player)
-        self.fired = False
+        
         
         self.image = pg.transform.rotate(self.image, 270)
 
@@ -1131,30 +1198,18 @@ class Bow(AttackItem):
                 self.fired = True
         
         super().update()
+    
+    def use(self):
+        super().use()
+        self.fired = False
         
 
 class Hookshot(AttackItem):
     def __init__(self, game, player):
         self.type = 'hookshot'
         super().__init__(game, player)
-        self.group.change_layer(self, self.player.layer - 2)
         self.spr_chain = self.game.imageLoader.hookshot_strip[1]
-        self.hit = False
-        self.grabbed = None
-        self.pulling = None
         
-        self.pos = vec(self.player.pos)
-        self.maxlen = 6 * st.TILESIZE
-        
-        self.speed = 3 * st.GLOBAL_SCALE
-        self.vel = vec(0, -1).rotate(-self.rot)
-        self.vel *= self.speed
-        
-        self.rect.center = self.pos
-        
-        self.hit_rect = pg.Rect((0, 0), (st.TILESIZE_SMALL, st.TILESIZE_SMALL))
-        self.hit_rect.center = self.pos
-
 
     def update(self):
         # POSSIBLE BUGS:
@@ -1214,17 +1269,63 @@ class Hookshot(AttackItem):
             elif self.pulling:
                 self.player.state = 'HOOKSHOT'
                 self.player.pos += self.vel
-                # BUGGED
-                # MEMO: change collision to player hit rect
-                wall_hits = pg.sprite.spritecollide(self.player, 
-                                                    self.game.walls, False)
-                if wall_hits:
+                
+                self.player.hit_rect.centerx = self.player.pos.x
+                hits = pg.sprite.spritecollide(self.player, self.game.walls, 
+                                               False, fn.collide_hit_rect)
+                if hits:
+                    # hit from left
+                    if hits[0].hit_rect.centerx > self.player.hit_rect.centerx:
+                        self.player.pos.x = hits[0].hit_rect.left - self.player.hit_rect.w / 2
+                    # hit from right
+                    elif hits[0].hit_rect.centerx < self.player.hit_rect.centerx:
+                        self.player.pos.x = hits[0].hit_rect.right + self.player.hit_rect.w / 2
+                                    
+                    self.player.vel.x = 0
+                    self.player.hit_rect.centerx = self.player.pos.x
+                    
                     self.kill()
                     self.player.state = 'IDLE'
+
+                self.player.hit_rect.centery = self.player.pos.y
+                hits = pg.sprite.spritecollide(self.player, self.game.walls, 
+                                               False, fn.collide_hit_rect)
+                if hits:
+                    # hit from top
+                    if hits[0].hit_rect.centery > self.player.hit_rect.centery:
+                        self.player.pos.y = hits[0].hit_rect.top - self.player.hit_rect.h / 2
+                    # hit from bottom
+                    elif hits[0].hit_rect.centery < self.player.hit_rect.centery:
+                        self.player.pos.y = hits[0].hit_rect.bottom + self.player.hit_rect.h / 2
+                        
+                    self.player.vel.y = 0
+                    self.player.hit_rect.centery = self.player.pos.y
+    
+                    self.kill()
+                    self.player.state = 'IDLE'
+    
+    def use(self):
+        super().use()
+        self.group.change_layer(self, self.player.layer - 2)
+        
+        self.hit = False
+        self.grabbed = None
+        self.pulling = None
+        self.pos = vec(self.player.pos)
+        self.maxlen = 6 * st.TILESIZE
+        
+        self.speed = 3 * st.GLOBAL_SCALE
+        self.vel = vec(0, -1).rotate(-self.rot)
+        self.vel *= self.speed
+        
+        self.rect.center = self.pos
+        
+        self.hit_rect = pg.Rect((0, 0), (st.TILESIZE_SMALL, st.TILESIZE_SMALL))
+        self.hit_rect.center = self.pos
         
         
     def draw_before(self):
-	# draw n chain links between the hookshot head and the player
+        #draw n chain links between the hookshot head and the player
         n = 10
         for i in range(n):
             # calculate a vector v from self to player
@@ -1475,6 +1576,7 @@ class Enemy(pg.sprite.Sprite):
 
         # default values (change in individual init after super().__init__())
         self.maxSpeed = 0.5 * st.GLOBAL_SCALE
+        self.seekForce = 0.5
         self.anim_update = 0
         self.walk_update = 0
         self.current_frame = 0
@@ -1507,13 +1609,13 @@ class Enemy(pg.sprite.Sprite):
             self.acc *= st.GLOBAL_SCALE                
         
         elif self.state == 'SEEK':
-            target = self.game.player.pos - self.pos
-            if target.length_squared() > 0:
-                target = target.normalize()
-                self.acc = target * self.maxSpeed
-            
-            else:
-                self.acc = vec(0, 0)
+            # MEMO: Change target to desired!
+            desired = (self.game.player.pos 
+                       - self.pos).normalize() * self.maxSpeed
+            steer = desired - self.vel
+            if steer.length_squared() > self.seekForce ** 2:
+                steer.scale_to_length(self.seekForce)
+            self.acc = steer
                 
         elif self.state == 'HITSTUN':
             # can't change acceleration when stunned
@@ -1777,7 +1879,7 @@ class Bat(Enemy):
         self.damage = 0.5
         self.hp = 3
         self.aggro_dist = 50 * st.GLOBAL_SCALE
-        self.maxSpeed = 0.5 * st.GLOBAL_SCALE
+        self.maxSpeed = 0.6 * st.GLOBAL_SCALE
         # knockback stats
         self.kb_time = 1
         self.kb_intensity = 1
@@ -1814,6 +1916,102 @@ class Bat(Enemy):
                 if self.timer > st.FPS * 10:
                     self.state = 'IDLE'
                     self.timer = 0
+                    
+
+class Sorcerer_boss(Enemy):
+    def __init__(self, game, pos, *args, **kwargs):
+        self.walk_frames = game.imageLoader.enemy_img['sorcerer_boss'][:4]
+        self.hit_image = game.imageLoader.enemy_img['sorcerer_boss'][4]
+        super().__init__(game, pos)
+        
+        self.state = 'IDLE'        
+        self.hit_rect = pg.Rect((0, 0), (self.image.get_width() * 0.6, 
+                                 self.image.get_height() * 0.7))
+        self.hit_rect.center = self.rect.center
+        
+        self.damage = 0.5
+        self.hp = 20
+        # knockback stats
+        self.kb_time = 1
+        self.kb_intensity = 2
+        
+        self.timer = 0
+        self.shoot_time = 5 * st.FPS
+        self.stun_timer = 0
+        
+        self.bats = pg.sprite.Group()
+        
+    
+    def update(self):
+        if self.state == 'HITSTUN':
+            self.stun_timer += 1
+            if self.stun_timer >= 20:
+                self.state = 'IDLE'
+                self.stun_timer = 0
+        # change the drawing layer in relation to the player
+        if self.hit_rect.top > self.game.player.hit_rect.top:
+            for g in self.groups:
+                g.change_layer(self, self.game.player.layer + 1)
+        else:
+            for g in self.groups:
+                g.change_layer(self, self.game.player.layer - 1)
+        
+        # update the position
+        self.rect = self.image.get_rect()
+        self.rect.center = self.pos
+        self.hit_rect.center = self.pos
+
+        self.collide_with_player()
+        if self.hp <= 0:
+            self.destroy()
+            
+        if self.state == 'FROZEN':
+            self.freeze_frames -= 1
+            if self.freeze_frames <= 0:
+                self.state = 'IDLE'
+
+        # calculate a vector from self to player
+        dist = self.game.player.rect.center - self.pos
+        angle = dist.angle_to(vecR)
+        # set the image based on the vector's angle to a normal vector 
+        # pointing to the right (vecR)
+        if (-45 < angle < 45):
+            # right
+            self.image = self.walk_frames[3]
+        elif (45 < angle < 135):
+            # up
+            self.image = self.walk_frames[2]
+        elif (135 < angle < 180) or (-180 < angle < -135):
+            # left
+            self.image = self.walk_frames[1]
+        else:
+            # down
+            self.image = self.walk_frames[0]
+            
+        if self.state == 'HITSTUN':
+            # flicker to indicate damage
+            try:
+                alpha = next(self.damage_alpha)
+                #self.image = self.lastimage.copy()
+                self.image = self.hit_image.copy()
+                self.image.fill((255, 255, 255, alpha), 
+                                special_flags=pg.BLEND_RGBA_MULT)
+            except:
+                self.state = 'IDLE'
+        
+        
+        self.timer += 1
+        if self.timer >= self.shoot_time:
+            self.timer = 0
+            if len(self.bats) <= 3:
+                pos = self.pos + (dist.normalize() * st.TILESIZE)
+                b = Bat(self.game, pos)
+                self.bats.add(b)
+                b.state = 'SEEK'
+                
+        
+        
+    
         
 
 # ------------ Particles ------------------------------------------------------
@@ -1826,7 +2024,7 @@ class Particle(pg.sprite.Sprite):
     def __init__(self, game,  pos, images, delay):
         self.group = game.all_sprites
         pg.sprite.Sprite.__init__(self)
-        self.layer = -1
+        self.layer = 0
         self.group.add(self, layer=self.layer)
         self.game = game
 
