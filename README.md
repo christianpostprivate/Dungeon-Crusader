@@ -9,7 +9,7 @@ Requires python 3.x
 | key | action|
 |-----|-------|
 | ARROW KEYS| move the player|
-| Z | Item A (Y on QWERTZ keyboard)|
+| Z (Y on QWERTZ keyboard)| Item A |
 | X | Item B |
 | ENTER | Interact (Doors, Chest etc.) |
 | ESC | open inventory |
