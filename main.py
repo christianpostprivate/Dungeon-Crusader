@@ -86,6 +86,7 @@ class Game:
         self.walls = pg.sprite.LayeredUpdates()
         self.gui = pg.sprite.LayeredUpdates()
         self.enemies = pg.sprite.LayeredUpdates()
+        self.traps = pg.sprite.LayeredUpdates()
         self.item_drops = pg.sprite.LayeredUpdates()
         self.dialogs = pg.sprite.LayeredUpdates()
 
@@ -105,17 +106,18 @@ class Game:
 
         self.inventory.addItem(spr.Sword(self, self.player))
         self.inventory.addItem(spr.Hookshot(self, self.player))
+        self.inventory.addItem(spr.Staff(self, self.player))
+        self.inventory.addItem(spr.Bow(self, self.player))
         b = spr.Bottle(self, self.player)
         b.fill('red_potion')
         self.inventory.addItem(b)
         b = spr.Bottle(self, self.player)
         b.fill('green_potion')
         self.inventory.addItem(b)
-        self.inventory.addItem(spr.Staff(self, self.player))
-        self.inventory.addItem(spr.Bow(self, self.player))
         b = spr.Bottle(self, self.player)
         b.fill('blue_potion')
         self.inventory.addItem(b)
+        self.inventory.addItem(spr.Lamp(self, self.player))
         
 
         # load settings
@@ -131,15 +133,18 @@ class Game:
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
                           self.dungeon.room_index)
         
-        # testing
-        '''
-        spr.Chest(self, (5 * st.TILESIZE, 10 * st.TILESIZE), (st.TILESIZE,
-                  st.TILESIZE), loot='smallkey', loot_amount=1)
+        # testing a dark transparent overlay
+        self.dim_screen = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT)).convert_alpha()
+        self.dim_screen.fill((0, 0, 0, 180))
         
-        spr.Chest(self, (5 * st.TILESIZE, 5 * st.TILESIZE), (st.TILESIZE,
-                  st.TILESIZE), loot='smallkey', loot_amount=1)'''
+        # Night effect
+        self.fog = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT))
+        self.fog.fill(st.NIGHT_COLOR)
+        self.light_mask = self.imageLoader.light_mask_img
+        size = (self.light_mask.get_width() * 5, self.light_mask.get_height() * 5)
+        self.light_mask_big = pg.transform.scale(self.imageLoader.light_mask_img,
+                             size)
         
-        #spr.Sorcerer_boss(self, (st.WIDTH // 2, st.HEIGHT // 1.5))
 
         self.run()
 
@@ -159,9 +164,8 @@ class Game:
 
     def update(self):
         if self.debug:
-            #self.caption = (str(self.player.friction) + ' ' + 
-                            #str(self.player.vel))
-            self.caption = 'DEBUG MODE'
+            self.caption = (str(round(self.clock.get_fps(), 2)))
+            #self.caption = 'DEBUG MODE'
             
         else:
             self.caption = st.TITLE
@@ -192,7 +196,7 @@ class Game:
             if not self.dungeon.room_current.cleared:
                 cs.checkFight(self)
                 
-        elif self.state == 'MENU':
+        elif self.state == 'MENU' or self.state == 'MENU_TRANSITION':
             self.inventory.update()
             
         elif self.state == 'TRANSITION':
@@ -268,8 +272,7 @@ class Game:
                     sprite.draw_before()
             # draw the sprites
             self.all_sprites.draw(self.screen)
-            # draw the inventory
-            self.drawGUI()
+            
             
             # ----- DEBUG STUFF ----- #
             # draw hitboxes in debug mode
@@ -300,7 +303,26 @@ class Game:
                     text_rect = text_surface.get_rect()
                     text_rect.topleft = pos
                     self.screen.blit(text_surface, text_rect)
+        
+        # draw Fog
+        if self.state != 'MENU':
+            
+            self.fog.fill(st.NIGHT_COLOR)
+            if self.player.lampOn:
+                self.light_rect = self.light_mask_big.get_rect()
+                self.light_rect.centerx = self.player.rect.centerx
+                self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
+                self.fog.blit(self.light_mask_big, self.light_rect)
+            else:
+                self.light_rect = self.light_mask.get_rect()
+                self.light_rect.centerx = self.player.rect.centerx
+                self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
+                self.fog.blit(self.light_mask, self.light_rect)
+            self.screen.blit(self.fog, (0, st.GUI_HEIGHT), special_flags=pg.BLEND_MULT)
 
+
+        # draw the inventory
+        self.drawGUI()
 
         pg.display.update()
 
