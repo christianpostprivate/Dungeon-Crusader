@@ -26,7 +26,7 @@ SOUND_FOLDER = path.join(directory, 'sounds')
 # ingame settings
 DUNGEON_SIZE = (10, 10)
 SCROLLSPEED = int(4 * GLOBAL_SCALE) # TOO FAST FOR SMALL SCALES!
-SCROLLSPEED_MENU = 4 * GLOBAL_SCALE
+SCROLLSPEED_MENU = 6 * GLOBAL_SCALE
 FPS = 60
 FONT = path.join(FONT_FOLDER, 'slkscr.TTF')
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
@@ -45,6 +45,10 @@ PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 PLAYER_HP_START = 7.0
 PLAYER_HP_MAX = 14.0
 PLAYER_HP_ROW = 7
+
+# item stats
+# mana the lamp uses per frame
+LAMP_MANA = 0.005
 
 
 # possible rooms for picking
@@ -85,6 +89,8 @@ YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 PINK = (255, 0, 255)
 TRANS = (255, 255, 255, 255)
+
+NIGHT_COLOR = (10, 10, 10)
 
 # key bindings
 KEY_A = pg.K_z

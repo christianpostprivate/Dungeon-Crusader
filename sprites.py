@@ -155,7 +155,8 @@ class ImageLoader:
                                                  0, 3, size=st.TILESIZE_SMALL),
             'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 3),
             'sorcerer_boss': fn.img_list_from_strip2('evil_sorcerer_strip.png', 
-                                                    32, 48, 0, 5)
+                                                    32, 48, 0, 5),
+            'blade_trap': fn.loadImage('blade_trap.png')
             }
         
         self.inv_item_strip = fn.img_list_from_strip('inv_item_strip.png', 16, 16, 
@@ -176,7 +177,8 @@ class ImageLoader:
                 'staff': self.inv_item_strip[1],
                 'bow': self.inv_item_strip[2],
                 'hookshot': self.inv_item_strip[3],
-                'bottle': self.bottles_strip[0]
+                'bottle': self.bottles_strip[0],
+                'lamp': self.inv_item_strip[5],
                 }
         
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
@@ -225,6 +227,9 @@ class ImageLoader:
                 'chest': self.solid_img['chest'][0],
                 'block': self.solid_img['block']
                 }
+        
+        
+        self.light_mask_img = fn.loadImage('light_white.png', scale=1)
         
 
 
@@ -281,6 +286,8 @@ class Player(pg.sprite.Sprite):
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
         self.friction = vec(0, 0)
+        
+        self.lampOn = False
 
 
         self.state = 'IDLE'
@@ -384,6 +391,7 @@ class Player(pg.sprite.Sprite):
             if self.attack_update > 20:
                 self.attack_update = 0
                 self.state = 'IDLE'
+                self.itemA.reset()
         
         elif self.state == 'USE_B':
             self.useB()
@@ -391,6 +399,7 @@ class Player(pg.sprite.Sprite):
             if self.attack_update > 20:
                 self.attack_update = 0
                 self.state = 'IDLE'
+                self.itemB.reset()
                 
         elif self.state == 'HITSTUN':
             # can't receive input when stunned
@@ -483,7 +492,16 @@ class Player(pg.sprite.Sprite):
         self.animate()
         
         self.eff_by_hole = False
-
+        
+        # lamp effects mana
+        if self.lampOn and self.mana > st.LAMP_MANA:
+            self.mana -= st.LAMP_MANA
+        
+        else:
+            self.lampOn = False
+    
+            
+        
 
     def animate(self):
         now = pg.time.get_ticks()
@@ -852,12 +870,15 @@ class Inventory(pg.sprite.Sprite):
             self.menu = not self.menu
 
         if self.menu:
-            self.game.state = 'MENU'
+            self.game.state = 'MENU_TRANSITION'
 
             # sliding down animation
             if self.pos != (0, 0):
                 self.pos.y += st.SCROLLSPEED_MENU
                 self.pos.y = min(0, self.pos.y)
+            
+            else:
+                self.game.state = 'MENU'
     
             # let the player move the cursor and select items                
             self.move_cursor()               
@@ -865,10 +886,11 @@ class Inventory(pg.sprite.Sprite):
         else:
             # sliding up animation
             if self.pos != self.start_pos:
+                self.game.state = 'MENU_TRANSITION'
                 self.pos.y -= st.SCROLLSPEED_MENU
                 self.pos.y = min(0, self.pos.y)
             else:
-                if self.game.state == 'MENU':
+                if self.game.state != 'GAME':
                     self.game.state = 'GAME'
 
 
@@ -1078,8 +1100,31 @@ class Bottle:
         self.inv_image = self.game.imageLoader.bottle_img['empty']
         self.content = None
 
+
+    def reset(self):
+        pass
+    
+
+
+class Lamp:
+    def __init__(self, game, player):
+        self.player = player
+        self.game = game
+        self.inv_image = self.game.imageLoader.inv_item_img['lamp']
+        self.used = False
+        
+    
+    def use(self):
+        if not self.used:
+            self.player.lampOn = not self.player.lampOn
+            self.used = True
+    
+    
+    def reset(self):
+        self.used = False
                 
-                
+   
+             
 class AttackItem(pg.sprite.Sprite):
     def __init__(self, game, player):
         self.group = game.all_sprites
@@ -1142,10 +1187,8 @@ class Sword(AttackItem):
     def __init__(self, game, player):
         self.type = 'sword'
         super().__init__(game, player)
-
+        self.fired = False
         self.damage = 1
-        # play slash sound      
-        self.game.soundLoader.snd_slash.play()
 
 
     def update(self):
@@ -1155,16 +1198,31 @@ class Sword(AttackItem):
             if enemy.state != 'HITSTUN':
                 enemy.hp -= self.damage
                 enemy.knockback(self.player, 1, 0.1)
+                
+    
+    def use(self):
+        super().use()
         
-
+        if not self.fired:
+            # play slash sound      
+            self.game.soundLoader.snd_slash.play()
+            self.fired = True
+            
+    
+    def reset(self):
+        self.fired = False
+        
+        
 
 class Staff(AttackItem):
     def __init__(self, game, player):
         self.type = 'staff'
         super().__init__(game, player)
-
-
-    def update(self):
+        self.fired = False
+        
+    
+    def use(self):
+        super().use()
         if not self.fired:
             if self.player.mana >= 1:
                 self.lastdir = self.player.lastdir
@@ -1172,11 +1230,8 @@ class Staff(AttackItem):
                 self.player.mana -= 1
                 self.fired = True
         
-        super().update()
-        
     
-    def use(self):
-        super().use()
+    def reset(self):
         self.fired = False
         
 
@@ -1199,9 +1254,10 @@ class Bow(AttackItem):
         
         super().update()
     
-    def use(self):
-        super().use()
+    
+    def reset(self):
         self.fired = False
+        
         
 
 class Hookshot(AttackItem):
@@ -1209,6 +1265,7 @@ class Hookshot(AttackItem):
         self.type = 'hookshot'
         super().__init__(game, player)
         self.spr_chain = self.game.imageLoader.hookshot_strip[1]
+        self.fired = False
         
 
     def update(self):
@@ -1304,10 +1361,12 @@ class Hookshot(AttackItem):
                     self.kill()
                     self.player.state = 'IDLE'
     
+    
     def use(self):
         super().use()
-        self.group.change_layer(self, self.player.layer - 2)
         
+        self.group.change_layer(self, self.player.layer - 2)
+            
         self.hit = False
         self.grabbed = None
         self.pulling = None
@@ -1323,6 +1382,9 @@ class Hookshot(AttackItem):
         self.hit_rect = pg.Rect((0, 0), (st.TILESIZE_SMALL, st.TILESIZE_SMALL))
         self.hit_rect.center = self.pos
         
+        if not self.fired:
+            self.fired = True
+        
         
     def draw_before(self):
         #draw n chain links between the hookshot head and the player
@@ -1337,6 +1399,10 @@ class Hookshot(AttackItem):
             #pg.draw.line(self.game.screen, st.RED, (int(self.player.pos.x), 
             #            int(self.player.pos.y)), (int(self.pos.x), 
             #               int(self.pos.y)), 4)
+            
+    
+    def reset(self):
+        self.fired = False
 
 
 class Projectile(pg.sprite.Sprite):
@@ -1440,7 +1506,7 @@ class Magicball(Projectile):
         
         self.speed = 2 * st.GLOBAL_SCALE
         self.max_speed = 3 * st.GLOBAL_SCALE
-        self.damage = 1
+        self.damage = 2
         self.anim_speed = 100
         
    
@@ -1916,7 +1982,118 @@ class Bat(Enemy):
                 if self.timer > st.FPS * 10:
                     self.state = 'IDLE'
                     self.timer = 0
+             
                     
+                    
+class Blade_trap(pg.sprite.Sprite):
+    def __init__(self, game, pos):
+        self.game = game
+        self.pos = vec(pos)
+        self.groups = self.game.all_sprites, self.game.traps
+        self.layer = self.game.player.layer + 1
+        pg.sprite.Sprite.__init__(self)
+        
+        for g in self.groups:
+            g.add(self, layer=self.layer)
+
+        self.image = game.imageLoader.enemy_img['blade_trap']
+        
+        self.rect = self.image.get_rect()
+        self.rect.center = self.pos
+        self.hit_rect = self.rect.copy()
+        self.vel = vec(0, 0)
+        self.acc = vec(0, 0)
+        self.friction = 0.1
+        self.state = 'IDLE'
+        self.maxSpeed = 2 * st.GLOBAL_SCALE
+        
+        self.damage = 1
+        # knockback stats
+        self.kb_time = 2
+        self.kb_intensity = 2
+        
+    
+    def move(self):
+        player = self.game.player
+        # set acceleration vector
+        # based on where the player is
+        # when in IDLE state
+        if self.state == 'IDLE':
+            if (self.pos.x - st.TILESIZE_SMALL < player.pos.x < 
+                self.pos.x + st.TILESIZE_SMALL):
+                self.acc.y = fn.sign(player.pos.y - self.pos.y)
+                self.state = 'MOVING'
+            if (self.pos.y - st.TILESIZE_SMALL < player.pos.y < 
+                self.pos.y + st.TILESIZE_SMALL):
+                self.acc.x = fn.sign(player.pos.x - self.pos.x)
+                self.state = 'MOVING'
+            
+            self.acc *= st.GLOBAL_SCALE
+    
+    
+    def update(self):
+        self.move()
+        
+        # save previous position
+        pos = (self.pos.x, self.pos.y)
+        
+        self.vel += self.acc
+        
+        if self.state == 'RETREAT':
+            self.vel *= 0.5
+                   
+        # reset acceleration
+        if self.state == 'IDLE':
+            self.acc *= 0
+         # apply friction
+        self.vel *= (1 - self.friction)
+
+        # cap speed at maximum
+        if self.vel.length_squared() > self.maxSpeed ** 2:
+            self.vel.scale_to_length(self.maxSpeed)
+        
+        # add velocity to position
+        self.pos += self.vel
+        
+        # update the position
+        self.rect = self.image.get_rect()
+        self.rect.center = self.pos
+
+        # collision with walls
+        self.hit_rect.centerx = self.pos.x
+        hit_x = fn.collide_with_walls(self, self.game.walls, 'x')
+        self.hit_rect.centery = self.pos.y
+        hit_y = fn.collide_with_walls(self, self.game.walls, 'y')
+        
+        # position the hitbox
+        self.rect.center = self.hit_rect.center
+        
+        if hit_x or hit_y:
+            self.state = 'IDLE'
+            
+        hits = pg.sprite.spritecollide(self, self.game.traps, False)
+        for hit in hits:
+            if hit != self:
+                # if another trap was hit, reverse acceleration
+                self.acc *= -1
+                self.pos = vec(pos)
+                self.rect.center = self.pos
+                self.hit_rect.center = self.rect.center
+                self.state = 'RETREAT'
+        
+        self.collide_with_player()
+        
+        
+    def collide_with_player(self):
+        # detect collision
+        player = self.game.player
+        if fn.collide_hit_rect(player, self):
+            if player.state != 'HITSTUN' and player.state != 'HOOKSHOT':
+                player.knockback(self, self.kb_time, self.kb_intensity)
+                player.hp -= self.damage
+        
+        
+        
 
 class Sorcerer_boss(Enemy):
     def __init__(self, game, pos, *args, **kwargs):

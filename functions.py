@@ -9,6 +9,13 @@ import sprites as spr
 vec = pg.math.Vector2
 
 
+def sign(number):
+    if number >= 0:
+        return 1
+    else:
+        return -1
+    
+
 def clamp(var, lower, upper):
     # restrains a variable's value between two values
     return max(lower, min(var, upper))
@@ -40,6 +47,7 @@ def collide_with_walls(sprite, group, dir_):
                             
             sprite.vel.x = 0
             sprite.hit_rect.centerx = sprite.pos.x
+            return True
             
     elif dir_ == 'y':
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
@@ -53,6 +61,8 @@ def collide_with_walls(sprite, group, dir_):
                 
             sprite.vel.y = 0
             sprite.hit_rect.centery = sprite.pos.y
+            return True
+    return False
 
 
 def screenWrap(player, dungeon):
