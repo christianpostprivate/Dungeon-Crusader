@@ -12,6 +12,11 @@ import sounds as snd
 
 vec = pg.math.Vector2
 
+#directions
+UP = (0, -1)
+DOWN = (0, 1)
+LEFT = (-1, 0)
+RIGHT = (1, 0)
 
 class Game:
     def __init__(self):
@@ -103,8 +108,9 @@ class Game:
         self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
         
         # ADD SOME ITEMS FOR TESTING -------------------------
-
-        self.inventory.addItem(spr.Sword(self, self.player))
+        s = spr.Sword(self, self.player)
+        self.inventory.addItem(s)
+        self.player.itemA = s
         self.inventory.addItem(spr.Hookshot(self, self.player))
         self.inventory.addItem(spr.Staff(self, self.player))
         self.inventory.addItem(spr.Bow(self, self.player))
@@ -134,8 +140,8 @@ class Game:
                           self.dungeon.room_index)
         
         # testing a dark transparent overlay
-        self.dim_screen = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT)).convert_alpha()
-        self.dim_screen.fill((0, 0, 0, 180))
+        #self.dim_screen = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT)).convert_alpha()
+        #self.dim_screen.fill((0, 0, 0, 180))
         
         # Night effect
         self.fog = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT))
@@ -143,7 +149,14 @@ class Game:
         self.light_mask = self.imageLoader.light_mask_img
         size = (self.light_mask.get_width() * 5, self.light_mask.get_height() * 5)
         self.light_mask_big = pg.transform.scale(self.imageLoader.light_mask_img,
-                             size)
+                             size)        
+        '''
+        spr.Block_push(self, (st.TILESIZE * 5, st.TILESIZE * 8), 
+                               (st.TILESIZE, st.TILESIZE))
+        
+        spr.Switch(self, (st.TILESIZE * 6, st.TILESIZE * 10), 
+                                (st.TILESIZE, st.TILESIZE))
+        b = spr.Skeleton(self, (st.TILESIZE * 6, st.TILESIZE * 10))'''
         
 
         self.run()
@@ -164,6 +177,7 @@ class Game:
 
     def update(self):
         if self.debug:
+            #self.caption = self.player.lampState
             self.caption = (str(round(self.clock.get_fps(), 2)))
             #self.caption = 'DEBUG MODE'
             
@@ -244,12 +258,11 @@ class Game:
 
                 if event.key == pg.K_h:
                     self.debug = not self.debug
-                
-                # REMOVE THIS!
+
                 if event.key == pg.K_k and self.debug:
                     # kill all enemies
-                    for s in self.enemies:
-                        s.kill()
+                    for e in self.enemies:
+                        e.hp = 0
 
                 if event.key == pg.K_F4:
                     self.slowmotion = not self.slowmotion
@@ -275,57 +288,87 @@ class Game:
             
             
             # ----- DEBUG STUFF ----- #
-            # draw hitboxes in debug mode
-            if self.debug:
-                for sprite in self.all_sprites:
-                    if hasattr(sprite, 'hit_rect'):
-                        pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
-                    if isinstance(sprite, spr.Keydoor):
-                        pg.draw.rect(self.screen, st.GREEN, 
-                                     sprite.interact_rect, 1)
-                    if self.draw_vectors:    
-                        if hasattr(sprite, 'aggro_dist'):
-                            pg.draw.circle(self.screen, st.RED, 
-                                        (int(sprite.pos.x), int(sprite.pos.y)), 
-                                        sprite.aggro_dist, 1)
-                    
-            if self.show_player_stats:
-                strings = [str(self.player.state), 
-                           ('(' + str(int(self.player.pos.x)) + ', '
-                              + str(int(self.player.pos.y)) + ')'),
-                           'Room: ' + str(self.dungeon.room_current.pos),
-                           'type: ' + str(self.dungeon.room_current.type)]
-                for i in range(len(strings)):
-                    # show debug infos
-                    pos = vec(16, st.GUI_HEIGHT + 16 + (i * 24 + 8))
-                    text_surface = self.debug_font.render(strings[i], 
-                                            False, st.WHITE)
-                    text_rect = text_surface.get_rect()
-                    text_rect.topleft = pos
-                    self.screen.blit(text_surface, text_rect)
+        # draw hitboxes in debug mode
+        if self.debug:
+            for sprite in self.all_sprites:
+                if hasattr(sprite, 'hit_rect'):
+                    pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
+                if hasattr(sprite, 'interact_rect'):
+                    pg.draw.rect(self.screen, st.GREEN, 
+                                 sprite.interact_rect, 1)
+                if self.draw_vectors:    
+                    if hasattr(sprite, 'aggro_dist'):
+                        pg.draw.circle(self.screen, st.RED, 
+                                    (int(sprite.pos.x), int(sprite.pos.y)), 
+                                    sprite.aggro_dist, 1)
         
         # draw Fog
+        '''
         if self.state != 'MENU':
-            
-            self.fog.fill(st.NIGHT_COLOR)
-            if self.player.lampOn:
-                self.light_rect = self.light_mask_big.get_rect()
-                self.light_rect.centerx = self.player.rect.centerx
-                self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
-                self.fog.blit(self.light_mask_big, self.light_rect)
-            else:
-                self.light_rect = self.light_mask.get_rect()
-                self.light_rect.centerx = self.player.rect.centerx
-                self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
-                self.fog.blit(self.light_mask, self.light_rect)
-            self.screen.blit(self.fog, (0, st.GUI_HEIGHT), special_flags=pg.BLEND_MULT)
-
+            self.drawFog()
+            '''
 
         # draw the inventory
         self.drawGUI()
 
         pg.display.update()
+        
+    
+    def drawFog(self):
+        self.fog.fill(st.NIGHT_COLOR)
+        if self.player.lampState == 'ON':
+            self.light_rect_big = self.light_mask_big.get_rect()
+            self.light_rect_big.centerx = self.player.rect.centerx
+            self.light_rect_big.centery = self.player.rect.centery - st.GUI_HEIGHT
+            self.fog.blit(self.light_mask_big, self.light_rect_big)
 
+        elif self.player.lampState == 'OFF':
+            self.light_rect = self.light_mask.get_rect()
+            self.light_rect.centerx = self.player.rect.centerx
+            self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
+            self.fog.blit(self.light_mask, self.light_rect)
+            
+        elif self.player.lampState == 'ON_TRANSITION':
+            self.light_mask_copy = self.imageLoader.light_mask_img.copy()
+            size = int((self.player.attack_update / st.LAMP_SWITCH_TIME) 
+                    * self.light_mask_big.get_rect().width)
+            size = max(self.light_mask.get_rect().width, size)
+            self.light_mask_copy = pg.transform.scale(self.light_mask_copy, 
+                                                      (size, size))
+            self.light_rect = self.light_mask_copy.get_rect()
+            self.light_rect.centerx = self.player.rect.centerx
+            self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
+            self.fog.blit(self.light_mask_copy, self.light_rect)
+        
+        elif self.player.lampState == 'OFF_TRANSITION':
+            self.light_mask_copy = self.imageLoader.light_mask_img.copy()
+            size = int((1 - self.player.attack_update / st.LAMP_SWITCH_TIME) 
+                    * self.light_mask_big.get_rect().width)
+            size = max(self.light_mask.get_rect().width, size)
+            self.light_mask_copy = pg.transform.scale(self.light_mask_copy, 
+                                                      (size, size))
+            self.light_rect = self.light_mask_copy.get_rect()
+            self.light_rect.centerx = self.player.rect.centerx
+            self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
+            self.fog.blit(self.light_mask_copy, self.light_rect)
+            
+        self.screen.blit(self.fog, (0, st.GUI_HEIGHT), special_flags=pg.BLEND_MULT)
+
+        if self.show_player_stats:
+            strings = [str(self.player.state), 
+                       ('(' + str(int(self.player.pos.x)) + ', '
+                          + str(int(self.player.pos.y)) + ')'),
+                       'Room: ' + str(self.dungeon.room_current.pos),
+                       'type: ' + str(self.dungeon.room_current.type)]
+            for i in range(len(strings)):
+                # show debug infos
+                pos = vec(16, st.GUI_HEIGHT + 16 + (i * 24 + 8))
+                text_surface = self.debug_font.render(strings[i], 
+                                        False, st.WHITE)
+                text_rect = text_surface.get_rect()
+                text_rect.topleft = pos
+                self.screen.blit(text_surface, text_rect)
+            
 
     def drawGUI(self):
         # Interface (Items, HUD, map, textboxes etc)
@@ -352,56 +395,59 @@ class Game:
             # scroll the new and old background
             # start positions for the new bg are based on the direction the
             # player is moving
+            
+            # REFACTOR THIS!!!
             start_positions = {
-                              'UP': vec(0, - (st.HEIGHT - st.GUI_HEIGHT * 2)),
-                              'DOWN': vec(0, st.HEIGHT),
-                              'LEFT': vec(- st.WIDTH, st.GUI_HEIGHT),
-                              'RIGHT': vec(st.WIDTH, st.GUI_HEIGHT)
+                              UP: vec(0, - (st.HEIGHT - st.GUI_HEIGHT * 2)),
+                              DOWN: vec(0, st.HEIGHT),
+                              LEFT: vec(- st.WIDTH, st.GUI_HEIGHT),
+                              RIGHT: vec(st.WIDTH, st.GUI_HEIGHT)
                               }
     
             self.bg_pos1 = start_positions[direction]
             # pos2 is the old bg's position that gets pushed out of the screen
             self.bg_pos2 = vec(0, st.GUI_HEIGHT)
             self.in_transition = True
+        
+            fn.transitRoom(self, self.dungeon, self.bg_pos1)
             
         else:    
             if self.bg_pos1 != (0, st.GUI_HEIGHT):
                 # moves the 2 room backrounds until the new background is at (0,0)
-                # the pos has to be restrained to prevent moving past (0,0) and
-                # stay forever in the loop
-                scroll_speed = st.SCROLLSPEED
-                if direction == 'UP':
-                    self.bg_pos1.y += scroll_speed
-                    self.bg_pos2.y += scroll_speed
+                # PROBLEM: Only works with certain scroll speeds!
+                
+                # calculate the move vector based on the direction
+                move = vec(0, 0)
+                move -= direction
+                move *= st.SCROLLSPEED
+                
+                # move the background surfaces
+                self.bg_pos1 += move
+                self.bg_pos2 += move
+                        
+                if direction == UP:
                     self.bg_pos1.y = min(st.GUI_HEIGHT, self.bg_pos1.y)
-                    self.player.rect.y += scroll_speed
-                elif direction == 'DOWN':
-                    self.bg_pos1.y -= scroll_speed
-                    self.bg_pos2.y -= scroll_speed
+                elif direction == DOWN:
                     self.bg_pos1.y = max(st.GUI_HEIGHT, self.bg_pos1.y)
-                    self.player.rect.y -= scroll_speed
-                elif direction == 'LEFT':
-                    self.bg_pos1.x += scroll_speed
-                    self.bg_pos2.x += scroll_speed
-                    self.bg_pos1.x = min(0, self.bg_pos1.x)                   
-                    self.player.rect.x += scroll_speed
-                elif direction == 'RIGHT':
-                    self.bg_pos1.x -= scroll_speed
-                    self.bg_pos2.x -= scroll_speed
-                    self.bg_pos1.x = max(0, self.bg_pos1.x)                   
-                    self.player.rect.x -= scroll_speed
+                elif direction == LEFT:
+                    self.bg_pos1.x = min(0, self.bg_pos1.x)
+                elif direction == RIGHT:
+                    self.bg_pos1.x = max(0, self.bg_pos1.x)
+                
+                # move the sprites during transition
+                # MEMO: get the target position of the sprite somehow
+                for sprite in self.all_sprites:
+                    sprite.rect.topleft += move                                     
+                    sprite.hit_rect.topleft += move
+                    sprite.pos += move
                     
-                #print(self.player.rect.center)
+                #print(self.player.rect.center)                    
     
                 self.screen.blit(self.old_background, self.bg_pos2)
                 self.screen.blit(self.background, self.bg_pos1)    
+                self.all_sprites.draw(self.screen)             
                 self.drawGUI()
-                
-                # for testing, remove later!
-                #self.all_sprites.draw(self.screen)
             else:
-                # put objects in the room after transition
-                fn.transitRoom(self, self.dungeon)
                 # update the player's position
                 self.player.pos = vec(new_pos)
                 self.player.hit_rect.center = vec(new_pos)

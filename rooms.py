@@ -141,17 +141,29 @@ class Room:
             
         # close doors with wall objects:
         if 'N' not in self.doors:
-            self.layout.append({'id': 0, 'name': 'wall', 'x': 360, 'y': 48,  
-                                'width': 48, 'height': 48})
+            self.layout.append({'id': 0, 'name': 'wall', 
+                                'x': 120 * st.GLOBAL_SCALE - 8, 
+                                'y': 16 * st.GLOBAL_SCALE,  
+                                'width': 16 * st.GLOBAL_SCALE + 16, 
+                                'height': 16 * st.GLOBAL_SCALE})
         if 'S' not in self.doors:
-            self.layout.append({'id': 0, 'name': 'wall', 'x': 360, 'y': 480,  
-                                'width': 48, 'height': 48})
+            self.layout.append({'id': 0, 'name': 'wall', 
+                                'x': 120 * st.GLOBAL_SCALE - 8, 
+                                'y': 160 * st.GLOBAL_SCALE,  
+                                'width': 16 * st.GLOBAL_SCALE + 16, 
+                                'height': 16 * st.GLOBAL_SCALE})
         if 'W' not in self.doors:
-            self.layout.append({'id': 0, 'name': 'wall', 'x': 48, 'y': 264,  
-                                'width': 48, 'height': 48})   
+            self.layout.append({'id': 0, 'name': 'wall', 
+                                'x': 16 * st.GLOBAL_SCALE, 
+                                'y': 88 * st.GLOBAL_SCALE - 8,  
+                                'width': 16 * st.GLOBAL_SCALE, 
+                                'height': 16 * st.GLOBAL_SCALE + 16})   
         if 'E' not in self.doors:
-            self.layout.append({'id': 0, 'name': 'wall', 'x': 672, 'y': 264,  
-                                'width': 48, 'height': 48})
+            self.layout.append({'id': 0, 'name': 'wall', 
+                                'x': 224 * st.GLOBAL_SCALE, 
+                                'y': 88 * st.GLOBAL_SCALE - 8,  
+                                'width': 16 * st.GLOBAL_SCALE, 
+                                'height': 16 * st.GLOBAL_SCALE + 16})
 
     
     def shutDoors(self):
@@ -160,22 +172,24 @@ class Room:
         --> instanciate a solid Door object in each entrance
         MEMO: MAYBE PUT THIS IN THE DUNGEON CLASS IDK
         '''
-        for door in self.doors:
-            pos = (st.DOOR_POSITIONS[door][0], st.DOOR_POSITIONS[door][1] 
-                    + st.GUI_HEIGHT)
-            d = spr.Door(self.game, pos, direction=door)
-            self.shut_doors.append(d)
-        
-        self.shut = True
+        if not self.shut:
+            for door in self.doors:
+                pos = (st.DOOR_POSITIONS[door][0], st.DOOR_POSITIONS[door][1] 
+                        + st.GUI_HEIGHT)
+                d = spr.Door(self.game, pos, direction=door)
+                self.shut_doors.append(d)
+            
+            self.shut = True
         
     
     def openDoors(self):
         '''
         delets all door sprites
         '''
-        for d in self.shut_doors:
-            d.kill()
-        self.shut = False
+        if self.shut:
+            for d in self.shut_doors:
+                d.kill()
+            self.shut = False
                    
 
 
