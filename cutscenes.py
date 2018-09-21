@@ -184,7 +184,6 @@ def checkFight(game):
     '''
     closes the doors and opens them when player defeats all enemies
     '''
-
     room = game.dungeon.room_current
     # if no enemies are in that room, mark this room as cleared and return
     if len(game.enemies) == 0:
@@ -195,10 +194,10 @@ def checkFight(game):
     if room.shut == False:
         # check player's position
         margin_x = 5 * st.TILESIZE_SMALL
-        margin_y = 5 * st.TILESIZE_SMALL + st.GUI_HEIGHT
+        margin_y = 5.5 * st.TILESIZE_SMALL + st.GUI_HEIGHT
         rect = pg.Rect((margin_x, margin_y), (st.WIDTH - 2 *  margin_x, 
                        st.HEIGHT - st.GUI_HEIGHT - margin_y))
-        if rect.colliderect(game.player.rect):
+        if rect.colliderect(game.player.hit_rect):
             # player is far enough in the room to shut the doors
             room.shutDoors()
     else:

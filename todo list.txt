@@ -1,6 +1,5 @@
-
+TO DO:
 - schwert animation
-- Gegner
 - start/game over screen
 - Sprite factory mit **kwargs 
 - Gegner Sterbe animationen
@@ -8,29 +7,34 @@
 - enemy stats, drop rates etc in eigene Datei
 - key binding function
 - Items: Lamp (place a fire sprite that damages enemies & light torches)
-
+- wall rects größer machen, damit gegner nicht aus dem Raum clippen.
+- Gegner Vector movement wandering, flee, avoid etc
+- mana anzeige reduziert sich um 3 pixel
+- Fledermäuse nur in dunklen Räumen, wachen auf wenn Licht entzündet wird
+- Weapon cooldown so anpassen, dass er erst beginnt, nachdem die Animation vorbei ist
+  Am Ende der animation trigger
+- items verschwinden nach einiger zeit
 
 
 Bekannte Bugs:
 - Rects für Türen und manche Objekte (Schild) skalieren nicht mit GLOBAL SCALE
-- Clipping wenn Türen automatisch schließen
-- Magic Staff feuert alles auf einmal ab
+- Gegner clippen durch walls
 
 
 
 ** done **
-*- mini map (siehe mockup)
-*- neues tileset (8x8 tiles)
-*- st.TILESIZE und st.TILESIZE_SMALL
-*- Room transitions kein while loop, sondern animation
-*- tileRoom function löscht keine objecte, sondern setzt welche wo keine türen sind
-*- draw layers
-*- Die gegner pos restricten
-*- spawn point an den anfang des Raumes setzen
-*- save folder
-*- Positionen von Objekten im Raum speichern
-*- enemy knockback
-*- loch zum reinfallen ('falling' state)
+- mini map (siehe mockup)
+- neues tileset (8x8 tiles)
+- st.TILESIZE und st.TILESIZE_SMALL
+- Room transitions kein while loop, sondern animation
+- tileRoom function löscht keine objecte, sondern setzt welche wo keine türen sind
+- draw layers
+- Die gegner pos restricten
+- spawn point an den anfang des Raumes setzen
+- save folder
+- Positionen von Objekten im Raum speichern
+- enemy knockback
+- loch zum reinfallen ('falling' state)
 - bei horizontalem Raumwechsel clipping fehler beheben
 - Items auf A und B legen
 - inventar layout

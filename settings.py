@@ -48,8 +48,9 @@ PLAYER_HP_ROW = 7
 
 # item stats
 # mana the lamp uses per frame
-LAMP_MANA = 0.005
-
+LAMP_MANA = 0.001
+# time it takes to switch the lamp on/off (put this in the lamp object somehow)
+LAMP_SWITCH_TIME = 30
 
 # possible rooms for picking
 ROOMS = {

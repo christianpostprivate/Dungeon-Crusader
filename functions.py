@@ -65,6 +65,37 @@ def collide_with_walls(sprite, group, dir_):
     return False
 
 
+def collide_with_walls_topleft(sprite, group, dir_):
+    if dir_ == 'x':
+        hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
+        if hits:
+            # hit from left
+            if hits[0].hit_rect.centerx > sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].hit_rect.left - sprite.hit_rect.w
+            # hit from right
+            elif hits[0].hit_rect.centerx < sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].hit_rect.right
+                            
+            sprite.vel.x = 0
+            sprite.hit_rect.left = sprite.pos.x
+            return True
+            
+    elif dir_ == 'y':
+        hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
+        if hits:
+            # hit from top
+            if hits[0].hit_rect.centery > sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].hit_rect.top - sprite.hit_rect.h
+            # hit from bottom
+            elif hits[0].hit_rect.centery < sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].hit_rect.bottom
+                
+            sprite.vel.y = 0
+            sprite.hit_rect.top = sprite.pos.y
+            return True
+    return False
+
+
 def screenWrap(player, dungeon):
     #checks if the player goes outside the screen
     #if they do, set their new position based on where they went
@@ -72,23 +103,27 @@ def screenWrap(player, dungeon):
     direction = ''
     new_pos = vec(player.hit_rect.center)
     if player.hit_rect.left < st.TILESIZE:
-        direction = 'LEFT'
+        #direction = 'LEFT'
+        direction = (-1, 0)
         player.vel = vec(0, 0)
         new_pos.x  = st.WIDTH - player.hit_rect.width - st.TILESIZE
         index[1] -= 1
     elif player.hit_rect.right > st.WIDTH - st.TILESIZE:
-        direction = 'RIGHT'
+        #direction = 'RIGHT'
         player.vel = vec(0, 0)
+        direction = (1, 0)
         new_pos.x = player.hit_rect.width + st.TILESIZE
         index[1] += 1
     elif player.hit_rect.top < st.GUI_HEIGHT + st.TILESIZE:
         player.vel = vec(0, 0)
-        direction = 'UP'
+        #direction = 'UP'
+        direction = (0, -1)
         new_pos.y = st.HEIGHT - player.hit_rect.height - st.TILESIZE
         index[0] -= 1
     elif player.hit_rect.bottom > st.HEIGHT - st.TILESIZE:
         player.vel = vec(0, 0)
-        direction = 'DOWN'
+        #direction = 'DOWN'
+        direction = (0, 1)
         new_pos.y = player.hit_rect.height + st.GUI_HEIGHT + st.TILESIZE
         index[0] += 1
     try:
@@ -97,7 +132,7 @@ def screenWrap(player, dungeon):
         traceback.print_exc()
 
 
-def transitRoom(game, dungeon):
+def transitRoom(game, dungeon, offset=vec(0, 0)):
     # get the index of the next and the previous room
     index_next = dungeon.room_index
     index_prev = game.prev_room
@@ -121,7 +156,10 @@ def transitRoom(game, dungeon):
         data = room_next.layout    
         for d in data:
             try:
-                spr.create(game, d)
+                if offset == (0, 0):
+                    spr.create(game, d)
+                else:
+                    spr.create(game, d, offset)
             except Exception:
                 traceback.print_exc()
                 pass
@@ -133,7 +171,10 @@ def transitRoom(game, dungeon):
         data = room_next.object_data    
         for d in data:
             try:
-                spr.create(game, d)
+                if offset == (0, 0):
+                    spr.create(game, d)
+                else:
+                    spr.create(game, d, offset)
             except Exception:
                 traceback.print_exc()
                 pass

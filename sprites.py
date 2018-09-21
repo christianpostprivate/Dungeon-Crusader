@@ -22,11 +22,10 @@ vecL = vec(LEFT)
 PLACEHOLDER_IMG = pg.Surface((st.TILESIZE, st.TILESIZE))
 PLACEHOLDER_IMG.fill(st.RED)
 
-
 exported_globals = globals()
 
- 
-def create(game, data):
+    
+def create(game, data, offset=vec(0, st.GUI_HEIGHT)):
     d = data
     g = game
     # takes a dictionary of sprite properties
@@ -34,17 +33,18 @@ def create(game, data):
     #instantiate the sprite 
     # MAKE THIS ONE FUNCTION FOR EVERY SPRITE BY LOOPING THROUGH KWARGS
     if name == 'Keydoor':
-        spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+        spr = exported_globals[name](g, (d['x']  + offset.x, d['y']  + offset.y),
                  size=(d['width'], d['height']), direction=d['direction'])
     elif name == 'Sign':
-        spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+        spr = exported_globals[name](g, (d['x'] + offset.x, d['y']  + offset.y),
                  size=(d['width'], d['height']), text=d['text'])
     elif name == 'Chest':
-        spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+        spr = exported_globals[name](g, (d['x'] + offset.x, d['y'] + offset.y),
                  size=(d['width'], d['height']), loot=d['loot'],
                  loot_amount=d['loot_amount'])
     else:
-        spr = exported_globals[name](g, (d['x'], d['y'] +  st.GUI_HEIGHT),
+        spr = exported_globals[name](g, (d['x'] + offset.x, 
+                              d['y'] + offset.y),
              (d['width'], d['height']))
     spr.data = d
         
@@ -98,7 +98,8 @@ class ImageLoader:
         self.solid_img ={
             'block': fn.getSubimg(self.tileset_image, 16, 16, (16, 0)),
             'sign':  fn.loadImage('sign.png'),
-            'chest': fn.img_list_from_strip('chest.png', 16, 16, 0, 2)
+            'chest': fn.img_list_from_strip('chest.png', 16, 16, 0, 2),
+            'switch': fn.img_list_from_strip('switch.png', 16, 16, 0, 2)
             }
 
         self.doors_image = fn.loadImage('doors_strip.png', 1)
@@ -149,11 +150,11 @@ class ImageLoader:
         
         self.enemy_img = {
             'skeleton': fn.img_list_from_strip('skeleton_strip.png', 16, 16, 
-                                               0, 2),
-            'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 4),
+                                               0, 7),
+            'slime': fn.img_list_from_strip('slime_strip.png', 16, 16, 0, 10),
             'slime_small': fn.img_list_from_strip('slime_strip.png', 16, 16, 
-                                                 0, 3, size=st.TILESIZE_SMALL),
-            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 3),
+                                                 0, 10, size=st.TILESIZE_SMALL),
+            'bat': fn.img_list_from_strip('bat_strip.png', 16, 16, 0, 9),
             'sorcerer_boss': fn.img_list_from_strip2('evil_sorcerer_strip.png', 
                                                     32, 48, 0, 5),
             'blade_trap': fn.loadImage('blade_trap.png')
@@ -183,6 +184,8 @@ class ImageLoader:
         
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
                                                  0, 4, size=st.TILESIZE_SMALL)
+        self.rupees = fn.img_list_from_strip('rupees.png', 8, 8, 
+                                                 0, 5, size=st.TILESIZE_SMALL)
         self.hookshot_strip = fn.img_list_from_strip('hookshot.png', 16, 16,
                                                      0, 2, size=st.TILESIZE)
         
@@ -194,8 +197,14 @@ class ImageLoader:
             'heart': self.item_strip1[0],
             'rupee': self.item_strip1[1], 
             'key': self.item_strip1[2],
-            'mana': self.item_strip1[3]
+            'mana': self.item_strip1[3],
+            'arrow':  fn.loadImage('arrow.png')
             }
+        
+        self.item_anims = {
+                'sword': fn.img_list_from_strip('sword_anim.png', 16, 16,
+                                                0, 16, size=st.TILESIZE)
+                }
         
         self.projectiles = fn.img_list_from_strip('projectiles.png', 8, 8, 
                                     0, 7, size=st.TILESIZE_SMALL)
@@ -287,7 +296,7 @@ class Player(pg.sprite.Sprite):
         self.lastdir = vec(DOWN)
         self.friction = vec(0, 0)
         
-        self.lampOn = False
+        self.lampState = 'OFF'
 
 
         self.state = 'IDLE'
@@ -386,17 +395,17 @@ class Player(pg.sprite.Sprite):
                     self.vel = vec(0, 0)
                 
         elif self.state == 'USE_A':
-            self.useA()
+            self.itemA.use()
             self.attack_update += 1
-            if self.attack_update > 20:
+            if self.attack_update > self.itemA.cooldown:
                 self.attack_update = 0
                 self.state = 'IDLE'
                 self.itemA.reset()
         
         elif self.state == 'USE_B':
-            self.useB()
+            self.itemB.use()
             self.attack_update += 1
-            if self.attack_update > 20:
+            if self.attack_update > self.itemB.cooldown:
                 self.attack_update = 0
                 self.state = 'IDLE'
                 self.itemB.reset()
@@ -418,6 +427,44 @@ class Player(pg.sprite.Sprite):
             else:
                 self.falling_time = pg.time.get_ticks()  # set fall time to current time
 
+        elif self.state == 'PUSHING':
+            keys = pg.key.get_pressed()
+            
+            # set the acceleration vector based on key presses
+            if self.lastdir == LEFT or self.lastdir == RIGHT:
+                move_x = keys[st.KEY_RIGHT] - keys[st.KEY_LEFT]
+            else:
+                move_x = 0
+            if self.lastdir == UP or self.lastdir == DOWN:
+                move_y = keys[st.KEY_DOWN] - keys[st.KEY_UP]
+            else:
+                move_y = 0
+
+            self.acc = vec(move_x, move_y)
+            if self.acc.length_squared() > 1:
+                self.acc.normalize()
+            self.acc *= st.PLAYER_ACC
+            
+            # set image's direction based on key pressed
+            if move_x == -1:        
+                self.dir = vec(LEFT)
+                #self.lastdir = vec(LEFT)
+
+            if move_x == 1:              
+                self.dir = vec(RIGHT)
+                #self.lastdir = vec(RIGHT)
+
+            if move_y == -1:
+                self.dir = vec(UP)
+                #self.lastdir = vec(UP)
+
+            if move_y == 1:
+                self.dir = vec(DOWN)
+                #self.lastdir = vec(DOWN)
+
+            if self.acc.length() < 0.1:
+                # if velocity is less than the threshold, set state to idle
+                self.state = 'IDLE'
 
         # FOR DEBUG TESTING
         if self.game.debug:
@@ -493,20 +540,32 @@ class Player(pg.sprite.Sprite):
         
         self.eff_by_hole = False
         
-        # lamp effects mana
-        if self.lampOn and self.mana > st.LAMP_MANA:
-            self.mana -= st.LAMP_MANA
-        
+        # lamp consumes mana
+        if self.lampState != 'OFF' and self.mana > st.LAMP_MANA:
+            self.mana -= st.LAMP_MANA      
         else:
-            self.lampOn = False
-    
-            
+            self.lampState = 'OFF'       
         
 
     def animate(self):
         now = pg.time.get_ticks()
 
         if self.state == 'WALKING':
+            if now - self.anim_update > 200:
+                self.anim_update = now
+                self.current_frame = (self.current_frame + 1) % len(
+                                      self.walk_frames_l)
+                if self.dir == RIGHT:
+                    self.image = self.walk_frames_r[self.current_frame]
+                elif self.dir == LEFT:
+                    self.image = self.walk_frames_l[self.current_frame]
+                if self.dir == DOWN:
+                    self.image = self.walk_frames_d[self.current_frame]
+                elif self.dir == UP:
+                    self.image = self.walk_frames_u[self.current_frame]
+        
+        elif self.state == 'PUSHING':
+            # ADD OWN ANIMATION FOR PUSHING!!!
             if now - self.anim_update > 200:
                 self.anim_update = now
                 self.current_frame = (self.current_frame + 1) % len(
@@ -571,16 +630,6 @@ class Player(pg.sprite.Sprite):
                 self.image = pg.transform.scale(self.image, 
                                         (int(self.image.get_width() * fall_pct),
                                          int(self.image.get_height() * fall_pct)))
-            
-            
-    def useA(self):
-        if not self.game.all_sprites.has(self.item_using):
-            self.item_using = self.itemA.use()
-    
-    
-    def useB(self):
-        if not self.game.all_sprites.has(self.item_using):
-            self.item_using = self.itemB.use()
             
     
     def stun(self, time):
@@ -649,6 +698,53 @@ class Block(Solid):
         
         self.image = self.game.imageLoader.solid_img['block']
         
+    
+    
+class Block_push(Solid):
+    def __init__(self, game, pos, size, **kwargs):
+        super().__init__(game, pos, size)
+        
+        self.image = self.game.imageLoader.solid_img['block']
+        self.size = self.image.get_size()
+        self.rect = pg.Rect(self.pos, self.size)
+        self.hit_rect = self.rect.copy()
+
+        offset = vec(4, 4)
+        self.interact_rect = self.rect.inflate(offset)
+        self.interact_rect.center = self.hit_rect.center
+        
+        self.vel = vec(0, 0)
+        self.acc = vec(0, 0)
+        
+        self.push_timer = 0
+    
+    
+    def update(self):
+        player = self.game.player
+        if self.interact_rect.colliderect(player.hit_rect):
+            # if player pushes, move in that direction
+            self.push_timer += 1
+            if self.push_timer > 0.8 * st.FPS:
+                self.acc = vec(player.dir)
+                player.state = 'PUSHING'
+        else:
+            self.vel *= 0
+            self.push_timer = 0
+        
+        self.vel += self.acc  
+        self.acc *= 0
+        self.pos += self.vel
+        self.rect.topleft = self.pos
+        
+        # collision with walls
+        self.hit_rect.left = self.pos.x
+        fn.collide_with_walls_topleft(self, self.game.walls, 'x')
+        self.hit_rect.top = self.pos.y
+        fn.collide_with_walls_topleft(self, self.game.walls, 'y')
+        
+        self.interact_rect.center = self.hit_rect.center
+    
+    
         
 class Sign(Solid):
     '''
@@ -746,6 +842,7 @@ class Keydoor(Solid):
         
     
     def update(self):
+        self.interact_rect.center = self.hit_rect.center
         player = self.game.player
         if (self.interact_rect.colliderect(player.rect) and 
             player.dir == self.dir_dict[self.dir]):
@@ -817,10 +914,69 @@ class Hole(pg.sprite.Sprite):
                     player.state = 'FALL'
                 else:
                     player.eff_by_hole = True
+        
+        # enemies  
+        '''       DOES NOT WORK    
+        for enemy in self.game.enemies:
+            if enemy.state != 'FALL' and not enemy.eff_by_hole:
+                if fn.collide_hit_rect(enemy, self):
+                    print(enemy.state)
+                    # Attract the player to the center of the hole
+                    desired = self.rect.center - enemy.pos
+                    mag = desired.length()
+                    force = desired.normalize() * st.GLOBAL_SCALE * 10 / mag
+                    enemy.pos += force
+                    if desired.length_squared() < 500:
+                        enemy.state = 'FALL'
+                    else:
+                        enemy.eff_by_hole = True
+        '''
                     
     
     def updateData(self):
         pass
+    
+    
+    
+class Switch(pg.sprite.Sprite):
+    def __init__(self, game, pos, size, **kwargs):
+        self.game = game
+        self.group = self.game.all_sprites
+        self.layer = 0
+        pg.sprite.Sprite.__init__(self)
+
+        self.group.add(self, layer=self.layer)
+            
+        self.pos = vec(pos)
+        self.size = size
+        
+        self.image = self.game.imageLoader.solid_img['switch'][0]
+        self.size = self.image.get_size()
+        self.rect = pg.Rect(self.pos, self.size)
+        #self.hit_rect = self.rect.copy()
+        offset = vec(-8 * st.GLOBAL_SCALE, -8 * st.GLOBAL_SCALE)
+        self.hit_rect = self.rect.inflate(offset)
+
+        self.pushed = False
+    
+    
+    def update(self):
+        player = self.game.player
+        # checks for collision with the player or a solid object
+        if (self.hit_rect.colliderect(player.hit_rect) or 
+            pg.sprite.spritecollide(self, self.game.walls, False, 
+                                    fn.collide_hit_rect)):
+            self.pushed = True
+            self.image = self.game.imageLoader.solid_img['switch'][1]
+            
+            # testing
+            self.game.dungeon.room_current.openDoors()
+        else:
+            self.pushed = False
+            self.image = self.game.imageLoader.solid_img['switch'][0]
+            
+            self.game.dungeon.room_current.shutDoors()
+        
             
             
 # --------------- Inventory & Items -------------------------------------------
@@ -1080,6 +1236,7 @@ class Bottle:
         self.game = game
         self.content = None
         self.inv_image = self.game.imageLoader.bottle_img['empty']
+        self.cooldown = 30
     
     
     def fill(self, substance):
@@ -1112,16 +1269,25 @@ class Lamp:
         self.game = game
         self.inv_image = self.game.imageLoader.inv_item_img['lamp']
         self.used = False
+        self.cooldown = st.LAMP_SWITCH_TIME
         
     
     def use(self):
         if not self.used:
-            self.player.lampOn = not self.player.lampOn
+            # lamp state machine
+            if self.player.lampState == 'OFF':
+                self.player.lampState = 'ON_TRANSITION'
+            elif self.player.lampState == 'ON':
+                self.player.lampState = 'OFF_TRANSITION'
             self.used = True
     
     
     def reset(self):
         self.used = False
+        if self.player.lampState == 'OFF_TRANSITION':
+            self.player.lampState = 'OFF'
+        elif self.player.lampState == 'ON_TRANSITION':
+            self.player.lampState = 'ON'
                 
    
              
@@ -1136,6 +1302,8 @@ class AttackItem(pg.sprite.Sprite):
         
         self.image = self.game.imageLoader.item_img[self.type]
         self.inv_image = self.game.imageLoader.inv_item_img[self.type]
+        
+        self.cooldown = 20
 
 
     def update(self):
@@ -1187,6 +1355,19 @@ class Sword(AttackItem):
     def __init__(self, game, player):
         self.type = 'sword'
         super().__init__(game, player)
+        self.cooldown = 15
+        img = self.game.imageLoader.item_anims[self.type]
+        self.animations = {
+                UP: img[:4],
+                DOWN: img[4:8],
+                RIGHT: img[8:12],
+                LEFT: img[12:]
+                }
+        
+        self.anim_update = 0
+        self.current_frame = 0
+        self.anim_speed = 80
+        
         self.fired = False
         self.damage = 1
 
@@ -1201,7 +1382,37 @@ class Sword(AttackItem):
                 
     
     def use(self):
-        super().use()
+        # overwrites super().use() for the animation
+        # maybe refactor this later and put back into parent
+        self.group.add(self, layer=self.layer)
+        
+        self.pos = vec(0, 0)
+        self.dir = self.player.lastdir
+        if self.dir == UP:
+            self.pos = vec(self.player.pos.x - 6 * st.GLOBAL_SCALE, 
+                           self.player.pos.y - 22 * st.GLOBAL_SCALE)
+        elif self.dir == DOWN:
+            self.pos = vec(self.player.pos.x - 9 * st.GLOBAL_SCALE, 
+                           self.player.pos.y + 1 * st.GLOBAL_SCALE)     
+        elif self.dir == RIGHT:
+            self.pos = vec(self.player.pos.x + 4 * st.GLOBAL_SCALE,
+                           self.player.pos.y - 14 * st.GLOBAL_SCALE)
+        elif self.dir == LEFT:
+            self.pos = vec(self.player.pos.x - 20 * st.GLOBAL_SCALE,
+                           self.player.pos.y - 14 * st.GLOBAL_SCALE)
+  
+        anim = self.animations[(self.dir.x, self.dir.y)]
+        self.image = anim[self.current_frame]
+        
+        now = pg.time.get_ticks()
+        if now - self.anim_update > self.anim_speed:
+            self.anim_update = now
+            self.current_frame = (self.current_frame + 1) % len(anim)
+        
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self.pos
+        self.hit_rect = self.rect
+        self.hit_rect.center = self.rect.center
         
         if not self.fired:
             # play slash sound      
@@ -1211,6 +1422,7 @@ class Sword(AttackItem):
     
     def reset(self):
         self.fired = False
+        self.current_frame = 0
         
         
 
@@ -1240,9 +1452,10 @@ class Bow(AttackItem):
     def __init__(self, game, player):
         self.type = 'bow'
         super().__init__(game, player)
-        
+        self.fired = False
         
         self.image = pg.transform.rotate(self.image, 270)
+        self.rect = self.image.get_rect()
 
 
     def update(self):
@@ -1269,7 +1482,7 @@ class Hookshot(AttackItem):
         
 
     def update(self):
-        # POSSIBLE BUGS:
+        # KNOWN BUGS:
         # WHEN PLAYER GETS HIT DURING SHOOTING,
         # HOOKSHOT MAY NOT BE ABLE TO RETURN TO PLAYER       
         if not self.hit:
@@ -1291,8 +1504,8 @@ class Hookshot(AttackItem):
                             # if hitting a block or chest, pull the player to it
                             self.pulling = wall
                         else:
-                            # create particle
-                            Particle(self.game, vec(self.pos), 
+                            # create blinking effect
+                            Effect(self.game, vec(self.pos), 
                                      self.game.imageLoader.effects['blink1'],
                                      50)
             if enemy_hits:
@@ -1513,7 +1726,7 @@ class Magicball(Projectile):
 
 class Arrow(Projectile):
     def __init__(self, game, player, pos, rotating=True):
-        self.image = game.imageLoader.projectiles[6]             
+        self.image = game.imageLoader.item_img['arrow']           
         super().__init__(game, player, pos, rotating)
         
         self.speed = 1 * st.GLOBAL_SCALE
@@ -1591,11 +1804,41 @@ class Item:
             self.rect.center = self.pos
             self.hit_rect = self.rect
             
+            self.value = 1
+            
             
         def collect(self):
-            self.player.item_counts['rupee'] += 1
+            self.player.item_counts['rupee'] += self.value
             self.game.soundLoader.snd_rupee.play()
             super().collect()
+            
+    
+    class rupee5(rupee):
+        def __init__(self, game, pos):
+            super().__init__(game, pos)           
+            self.image = self.game.imageLoader.rupees[1]      
+            self.value = 5
+    
+    
+    class rupee20(rupee):
+        def __init__(self, game, pos):
+            super().__init__(game, pos)           
+            self.image = self.game.imageLoader.rupees[2]      
+            self.value = 20
+            
+    
+    class rupee50(rupee):
+        def __init__(self, game, pos):
+            super().__init__(game, pos)           
+            self.image = self.game.imageLoader.rupees[3]      
+            self.value = 50
+    
+    
+    class rupee100(rupee):
+        def __init__(self, game, pos):
+            super().__init__(game, pos)           
+            self.image = self.game.imageLoader.rupees[4]      
+            self.value = 100
             
         
     class key(ItemDrop):
@@ -1639,6 +1882,11 @@ class Enemy(pg.sprite.Sprite):
         self.state = 'IDLE'
         self.freeze_frames = 0
         
+        self.fall_time = 0
+        self.falling_time = 0
+        self.ticks_to_fall = 800
+        self.eff_by_hole = False
+        
 
         # default values (change in individual init after super().__init__())
         self.maxSpeed = 0.5 * st.GLOBAL_SCALE
@@ -1647,6 +1895,8 @@ class Enemy(pg.sprite.Sprite):
         self.walk_update = 0
         self.current_frame = 0
         self.anim_speed = 300
+        
+        
         
         # testing a save function
         #self.saveGame = self.game.saveGame
@@ -1675,17 +1925,26 @@ class Enemy(pg.sprite.Sprite):
             self.acc *= st.GLOBAL_SCALE                
         
         elif self.state == 'SEEK':
-            # MEMO: Change target to desired!
-            desired = (self.game.player.pos 
-                       - self.pos).normalize() * self.maxSpeed
+            desired = (self.game.player.pos - self.pos)
+            if desired.length_squared() > 0:
+                desired = desired.normalize() * self.maxSpeed
             steer = desired - self.vel
             if steer.length_squared() > self.seekForce ** 2:
                 steer.scale_to_length(self.seekForce)
             self.acc = steer
                 
-        elif self.state == 'HITSTUN':
+        elif self.state == 'HITSTUN' or self.state == 'DYING':
             # can't change acceleration when stunned
             pass
+    
+        elif self.state == 'FALL':
+            if self.fall_time == 0:
+                self.fall_time = pg.time.get_ticks()
+                self.fall_time += self.ticks_to_fall  # add N seconds for the fall time
+            if self.falling_time > self.fall_time:  # fall until time passes N amount
+                self.kill()
+            else:
+                self.falling_time = pg.time.get_ticks()
         
         
     def update(self):
@@ -1742,8 +2001,11 @@ class Enemy(pg.sprite.Sprite):
         self.rect.midbottom = self.hit_rect.midbottom
 
         self.collide_with_player()
-        if self.hp <= 0:
-            self.destroy()
+        if self.hp <= 0 and self.state != 'DYING':
+            #self.destroy()
+            self.vel *= 0
+            self.anim_speed = 100
+            self.state = 'DYING'
             
         if self.state == 'FROZEN':
             self.freeze_frames -= 1
@@ -1785,13 +2047,27 @@ class Enemy(pg.sprite.Sprite):
                     self.current_frame = (self.current_frame + 1) % len(
                                           self.idle_frames)
                     self.image = self.idle_frames[self.current_frame]
+        
+        elif self.state == 'DYING':
+            if hasattr(self, 'die_frames'):
+                if now - self.anim_update > self.anim_speed:
+                    self.anim_update = now
+                    if self.current_frame == len(self.die_frames):
+                        self.destroy()
+                    else:
+                        self.image = self.die_frames[self.current_frame]
+                        self.current_frame += 1
 
 
     def collide_with_player(self):
-        # detect collision
+        if self.state == 'DYING':
+            return
+        
+        # detect collision with player
         player = self.game.player
         if fn.collide_hit_rect(player, self):
-            if player.state != 'HITSTUN' and player.state != 'HOOKSHOT':
+            if (player.state != 'HITSTUN' and player.state != 'HOOKSHOT' and
+                player.state != 'FALL'):
                 player.knockback(self, self.kb_time, self.kb_intensity)
                 player.hp -= self.damage
             
@@ -1845,7 +2121,8 @@ class Enemy(pg.sprite.Sprite):
 
 class Skeleton(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.walk_frames = game.imageLoader.enemy_img['skeleton']
+        self.walk_frames = game.imageLoader.enemy_img['skeleton'][:2]
+        self.die_frames = game.imageLoader.enemy_img['skeleton'][2:]
         super().__init__(game, pos)
         
         self.state = 'WALKING'
@@ -1869,7 +2146,8 @@ class Skeleton(Enemy):
 
 class Slime(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.walk_frames = game.imageLoader.enemy_img['slime']
+        self.walk_frames = game.imageLoader.enemy_img['slime'][:4]
+        self.die_frames = game.imageLoader.enemy_img['slime'][5:]
         super().__init__(game, pos)
         
         self.state = 'WALKING'        
@@ -1899,7 +2177,8 @@ class Slime(Enemy):
 
 class Slime_small(Enemy):
     def __init__(self, game, pos, *args, **kwargs):
-        self.walk_frames = game.imageLoader.enemy_img['slime_small']
+        self.walk_frames = game.imageLoader.enemy_img['slime_small'][:4]
+        self.die_frames = game.imageLoader.enemy_img['slime_small'][5:]
         super().__init__(game, pos)
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.4), 
@@ -1923,10 +2202,12 @@ class Slime_small(Enemy):
                 }
         
         self.drop_rates = {
-                'none': 0.08,
-                'heart': 0.3,
-                'rupee': 0.3,
-                'mana': 0.3
+                'none': 0.01,
+                'rupee': 0.5,
+                'rupee5': 0.4,
+                'rupee20': 0.3,
+                'rupee50': 0.2,
+                'rupee100': 0.1
                 }
 
 
@@ -1936,7 +2217,9 @@ class Bat(Enemy):
         self.walk_frames = [game.imageLoader.enemy_img['bat'][0],
                             game.imageLoader.enemy_img['bat'][1]]
         self.idle_frames = [game.imageLoader.enemy_img['bat'][2]]
+        self.die_frames = game.imageLoader.enemy_img['bat'][3:]
         super().__init__(game, pos)
+        self.image = self.idle_frames[0]
         
         self.hit_rect = pg.Rect(0, 0, int(st.TILESIZE * 0.8), 
                                 int(st.TILESIZE * 0.6))
@@ -1954,7 +2237,7 @@ class Bat(Enemy):
         self.drop_rates = {
                 'none': 0.1,
                 'heart': 0.15,
-                'rupee': 0.3
+                'rupee5': 0.8
                 }
             
     
@@ -2193,7 +2476,7 @@ class Sorcerer_boss(Enemy):
 
 # ------------ Particles ------------------------------------------------------
                     
-class Particle(pg.sprite.Sprite):
+class Effect(pg.sprite.Sprite):
     '''
     Sprite that plays an animation from a given image list
     and then destroys itself
@@ -2224,3 +2507,35 @@ class Particle(pg.sprite.Sprite):
             self.timer = now
             self.image = self.images[self.frame]
             self.frame = self.frame + 1
+            
+
+class Particle(pg.sprite.Sprite):
+    def __init__(self, game, pos, diameter):
+        self.groups = game.all_sprites
+        pg.sprite.Sprite.__init__(self)
+        self.layer = -1
+        self.groups.add(self, layer=self.layer)
+        self.game = game
+        self.pos = vec(pos)
+        
+        self.image = pg.Surface((diameter, diameter))
+        self.image.fill((0, 0, 0))
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+               
+        pg.draw.ellipse(self.image, (255, 100, 0), self.rect)
+        self.alpha = 255
+        
+        self.rect.center = self.pos
+        
+        self.decay = 10
+        
+
+    def update(self):
+        # ADD VECTOR MOVEMENT
+        self.rect.center = self.pos     
+        self.image.set_alpha(self.alpha)      
+        self.alpha -= self.decay
+        if self.alpha <= 0:
+            self.kill()
+            
