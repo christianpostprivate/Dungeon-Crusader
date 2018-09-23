@@ -28,6 +28,16 @@ class Game:
         pg.key.set_repeat(10, 150)
         pg.mouse.set_visible(False)
         
+        # detect gamepad
+        pg.joystick.init()
+        self.gamepads = [pg.joystick.Joystick(x) for x in range(
+                     pg.joystick.get_count())]
+        if self.gamepads:
+            self.gamepads[0].init()
+            buttons = self.gamepads[0].get_numbuttons()
+            print(buttons)
+            # fn.testGamepad(self.gamepad[0])
+        
         #self.font_name = pg.font.match_font(st.FONT_NAME)
 
         self.screen = pg.display.set_mode((st.WIDTH, st.HEIGHT))
