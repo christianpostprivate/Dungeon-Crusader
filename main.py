@@ -2,6 +2,7 @@ import pygame as pg
 import traceback
 #from os import path
 #from random import seed, random
+from random import choice, shuffle
 
 import settings as st
 import sprites as spr
@@ -24,8 +25,10 @@ class Game:
         pg.mixer.pre_init(44100, -16, 2, 2048)
         pg.mixer.init()
         pg.init()
+        
+        pg.joystick.init()
 
-        pg.key.set_repeat(10, 150)
+        pg.key.set_repeat(10, st.KEY_DELAY)
         pg.mouse.set_visible(False)
         
         # detect gamepad
@@ -62,6 +65,8 @@ class Game:
         self.saveGame.load()
 
         self.loadAssets()
+        
+        self.timer = 0
 
 
     def loadAssets(self):
@@ -92,6 +97,27 @@ class Game:
 
         print('GAME SAVED')
         pg.display.set_caption(self.caption)
+        
+    
+    def show_start_screen(self):
+        # game splash/start screen
+        self.screen.blit(self.imageLoader.start_screen, (0, 0))
+        pg.display.flip()
+        self.wait_for_key()
+        
+    
+    def wait_for_key(self):
+        pg.time.wait(1000)
+        pg.event.wait()
+        waiting = True
+        while waiting:
+            self.clock.tick(st.FPS)
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    waiting = False
+                    self.running = False
+                if event.type == pg.KEYUP:
+                    waiting = False
 
 
     def new(self):
@@ -101,6 +127,7 @@ class Game:
         self.walls = pg.sprite.LayeredUpdates()
         self.gui = pg.sprite.LayeredUpdates()
         self.enemies = pg.sprite.LayeredUpdates()
+        self.npcs = pg.sprite.LayeredUpdates()
         self.traps = pg.sprite.LayeredUpdates()
         self.item_drops = pg.sprite.LayeredUpdates()
         self.dialogs = pg.sprite.LayeredUpdates()
@@ -115,7 +142,7 @@ class Game:
         self.inventory = spr.Inventory(self)
 
         # spawn the player in the middle of the room
-        self.player = spr.Player(self, (st.WIDTH // 2, st.HEIGHT // 2))
+        self.player = spr.Player(self, (st.WIDTH // 2, st.TILESIZE * 12))
         
         # ADD SOME ITEMS FOR TESTING -------------------------
         s = spr.Sword(self, self.player)
@@ -125,14 +152,14 @@ class Game:
         self.inventory.addItem(spr.Staff(self, self.player))
         self.inventory.addItem(spr.Bow(self, self.player))
         b = spr.Bottle(self, self.player)
-        b.fill('red_potion')
-        self.inventory.addItem(b)
+        b.fill('red potion')
+        self.inventory.addItemSlot(b, (0, 4))
         b = spr.Bottle(self, self.player)
-        b.fill('green_potion')
-        self.inventory.addItem(b)
+        b.fill('green potion')
+        self.inventory.addItemSlot(b, (1, 4))
         b = spr.Bottle(self, self.player)
-        b.fill('blue_potion')
-        self.inventory.addItem(b)
+        b.fill('blue potion')
+        self.inventory.addItemSlot(b, (2, 4))
         self.inventory.addItem(spr.Lamp(self, self.player))
         
 
@@ -166,8 +193,37 @@ class Game:
         
         spr.Switch(self, (st.TILESIZE * 6, st.TILESIZE * 10), 
                                 (st.TILESIZE, st.TILESIZE))
-        b = spr.Skeleton(self, (st.TILESIZE * 6, st.TILESIZE * 10))'''
+        b = spr.Chest(self, (st.TILESIZE * 6, st.TILESIZE * 10), (48, 48), 
+                      #loot='rupee', loot_amount=100)
+        b.hp = 100
+        speed = 0.7
+        for i in range(3, 13):
+            if i != 12:
+                spr.Conveyor(self, (st.TILESIZE * i, st.TILESIZE * 11), (16, 16),
+                     RIGHT, speed)
+            if i != 3:
+                spr.Conveyor(self, (st.TILESIZE * i, st.TILESIZE * 6), (16, 16),
+                     LEFT, speed)
+        for i in range(6, 11):
+            if i != 11:
+                spr.Conveyor(self, (st.TILESIZE * 3, st.TILESIZE * i), (16, 16),
+                     DOWN, speed)
+            if i != 5:
+                spr.Conveyor(self, (st.TILESIZE * 12, st.TILESIZE * (i + 1)), (16, 16),
+                     UP, speed)
+        #spr.MovingPlatform(self, (st.TILESIZE * 3, st.TILESIZE * 6), (16, 16),
+                    # DOWN, 0.5)
         
+        #spr.MovingPlatform(self, (st.TILESIZE * 5, st.TILESIZE * 6), (16, 16),
+                     #RIGHT, 0.7)
+        '''
+        #spr.Slime(self, (st.TILESIZE * 6, st.TILESIZE * 10), (48, 48))
+        spr.Merchant(self, (st.TILESIZE * 8, st.TILESIZE * 7))
+        items = list(self.imageLoader.shop_items.keys())
+        shuffle(items)
+        spr.ItemShop(self, (st.TILESIZE_SMALL * 10, st.TILESIZE * 8), items.pop())
+        spr.ItemShop(self, (st.TILESIZE_SMALL * 15, st.TILESIZE * 8), items.pop())
+        spr.ItemShop(self, (st.TILESIZE_SMALL * 20, st.TILESIZE * 8), items.pop())
 
         self.run()
 
@@ -181,62 +237,9 @@ class Game:
             else:
                 self.clock.tick(st.FPS)
             self.events()
+            fn.get_inputs(self)            
             self.update()
             self.draw()
-
-
-    def update(self):
-        if self.debug:
-            #self.caption = self.player.lampState
-            self.caption = (str(round(self.clock.get_fps(), 2)))
-            #self.caption = 'DEBUG MODE'
-            
-        else:
-            self.caption = st.TITLE
-        pg.display.set_caption(self.caption)
-        if self.slowmotion:
-            pg.display.set_caption('slowmotion')
-
-        # game loop update
-
-        # check for key presses
-        self.key_down = fn.keyDown(self.event_list)
-
-        if self.state == 'GAME':
-            self.all_sprites.update()
-                    
-            self.dialogs.update()
-            self.inventory.update()
-            # check for room transitions on screen exit (every frame)
-            self.direction, self.new_room, self.new_pos = fn.screenWrap(
-                    self.player, self.dungeon)
-
-            if self.new_room != self.dungeon.room_index:
-                self.prev_room = self.dungeon.room_index
-                self.dungeon.room_index = self.new_room
-                self.state = 'TRANSITION'
-                
-            # When in a fight, shut the doors:
-            if not self.dungeon.room_current.cleared:
-                cs.checkFight(self)
-                
-        elif self.state == 'MENU' or self.state == 'MENU_TRANSITION':
-            self.inventory.update()
-            
-        elif self.state == 'TRANSITION':
-            self.RoomTransition(self.new_pos, self.direction)
-            
-        elif self.state == 'CUTSCENE':
-            self.dialogs.update()
-            self.walls.update()
-        
-        
-        # DEBUG STUFF
-        if self.key_down == pg.K_F12:
-            self.caption = 'SAVING DUNGEON IMAGE'
-            pg.display.set_caption(self.caption)
-            self.dungeon.SaveToPNG()
-            
 
 
     def events(self):
@@ -285,6 +288,58 @@ class Game:
                     print('test')
 
 
+    def update(self):
+        if self.debug:
+            #self.caption = self.player.lampState
+            self.caption = (str(round(self.clock.get_fps(), 2)))
+            #self.caption = 'DEBUG MODE'
+            
+        else:
+            self.caption = st.TITLE
+        pg.display.set_caption(self.caption)
+        if self.slowmotion:
+            pg.display.set_caption('slowmotion')
+
+        # game loop update
+
+        # check for key presses
+        self.key_down = fn.keyDown(self.event_list)
+
+        if self.state == 'GAME':
+            self.all_sprites.update()
+                    
+            self.dialogs.update()
+            self.inventory.update()
+            # check for room transitions on screen exit (every frame)
+            self.direction, self.new_room, self.new_pos = fn.screenWrap(
+                    self.player, self.dungeon)
+
+            if self.new_room != self.dungeon.room_index:
+                self.prev_room = self.dungeon.room_index
+                self.dungeon.room_index = self.new_room
+                self.state = 'TRANSITION'
+                
+            # When in a fight, shut the doors:
+            if not self.dungeon.room_current.cleared:
+                cs.checkFight(self)
+                
+        elif self.state == 'MENU' or self.state == 'MENU_TRANSITION':
+            self.inventory.update()
+            
+        elif self.state == 'TRANSITION':
+            self.RoomTransition(self.new_pos, self.direction)
+            
+        elif self.state == 'CUTSCENE':
+            self.dialogs.update()
+            self.walls.update()
+        
+        # DEBUG STUFF
+        if self.key_down == pg.K_F12:
+            self.caption = 'SAVING DUNGEON IMAGE'
+            pg.display.set_caption(self.caption)
+            self.dungeon.SaveToPNG()
+            
+
     def draw(self):
         if self.state != 'TRANSITION':
             # draw the background (tilemap)
@@ -295,6 +350,10 @@ class Game:
                     sprite.draw_before()
             # draw the sprites
             self.all_sprites.draw(self.screen)
+            
+            for sprite in self.all_sprites:
+                if hasattr(sprite, 'draw_after'):
+                    sprite.draw_after()
             
             
             # ----- DEBUG STUFF ----- #
@@ -313,10 +372,8 @@ class Game:
                                     sprite.aggro_dist, 1)
         
         # draw Fog
-        '''
-        if self.state != 'MENU':
-            self.drawFog()
-            '''
+        #if self.state != 'MENU':
+            #self.drawFog()
 
         # draw the inventory
         self.drawGUI()
@@ -406,7 +463,6 @@ class Game:
             # start positions for the new bg are based on the direction the
             # player is moving
             
-            # REFACTOR THIS!!!
             start_positions = {
                               UP: vec(0, - (st.HEIGHT - st.GUI_HEIGHT * 2)),
                               DOWN: vec(0, st.HEIGHT),
@@ -427,9 +483,7 @@ class Game:
                 # PROBLEM: Only works with certain scroll speeds!
                 
                 # calculate the move vector based on the direction
-                move = vec(0, 0)
-                move -= direction
-                move *= st.SCROLLSPEED
+                move = (vec(0, 0) - direction) * st.SCROLLSPEED
                 
                 # move the background surfaces
                 self.bg_pos1 += move
@@ -450,8 +504,6 @@ class Game:
                     sprite.rect.topleft += move                                     
                     sprite.hit_rect.topleft += move
                     sprite.pos += move
-                    
-                #print(self.player.rect.center)                    
     
                 self.screen.blit(self.old_background, self.bg_pos2)
                 self.screen.blit(self.background, self.bg_pos1)    
@@ -468,13 +520,14 @@ class Game:
                 self.state = 'GAME'
                 
         
-
-g = Game()
-try:
-    while g.running:
-        g.new()
-except Exception:
-    traceback.print_exc()
+if __name__ == '__main__':
+    g = Game()
+    try:
+        g.show_start_screen()
+        while g.running:
+            g.new()
+    except Exception:
+        traceback.print_exc()
+        pg.quit()
+    
     pg.quit()
-
-pg.quit()

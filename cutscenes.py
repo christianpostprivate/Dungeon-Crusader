@@ -128,13 +128,8 @@ class Textbox(pg.sprite.Sprite):
                     self.scroll = False
                 break
             
-        if self.waitforKey():
+        if self.game.keys['X']:
             self.scroll = True
-            
-
-    def waitforKey(self):
-        if self.game.key_down == pg.K_RETURN:
-            return True
                 
 
     def update(self):  
@@ -176,6 +171,7 @@ class Arrow(pg.sprite.Sprite):
         self.rect.midbottom = self.pos
         
     def draw(self, surface):
+        # ANIMATE!
         surface.blit(self.image, self.rect)
         
         
