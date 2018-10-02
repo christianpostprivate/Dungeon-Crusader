@@ -2,23 +2,26 @@ TO DO:
 - schwert animation
 - start/game over screen
 - Sprite factory mit **kwargs 
-- Gegner Sterbe animationen
 - key logic
 - enemy stats, drop rates etc in eigene Datei
 - key binding function
 - Items: Lamp (place a fire sprite that damages enemies & light torches)
 - wall rects größer machen, damit gegner nicht aus dem Raum clippen.
 - Gegner Vector movement wandering, flee, avoid etc
-- mana anzeige reduziert sich um 3 pixel
 - Fledermäuse nur in dunklen Räumen, wachen auf wenn Licht entzündet wird
 - Weapon cooldown so anpassen, dass er erst beginnt, nachdem die Animation vorbei ist
   Am Ende der animation trigger
-- items verschwinden nach einiger zeit
+- bewegende platformen
+- vector movement verbessern (player.apply_force())
+- Händler
+- Start / Game Over screen
+- pushing animation
 
 
 Bekannte Bugs:
 - Rects für Türen und manche Objekte (Schild) skalieren nicht mit GLOBAL SCALE
 - Gegner clippen durch walls
+- gegner fallen nicht in Löcher
 
 
 
@@ -43,3 +46,8 @@ Bekannte Bugs:
 - save map img as png
 - maxspeed bei Gegnern funktioniert nicht
 - objektpositionen beim Raumwechsel funktionieren nicht
+- mana anzeige reduziert sich um 3 pixel
+- items verschwinden nach einiger zeit
+- Gegner Sterbe animationen
+- Herzen/Magie füllen sich nicht auf einmal, sondern in einer kurzen Animation
+- förderbänder

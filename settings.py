@@ -2,6 +2,8 @@ import pygame as pg
 from os import path
 from random import choice
 
+vec = pg.math.Vector2
+
 # window settings and constants
 GLOBAL_SCALE = 3
 TILESIZE = int(16 * GLOBAL_SCALE)
@@ -34,6 +36,8 @@ TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
 
 SFX_VOL = 0.3
 MU_VOL = 0.3
+
+KEY_DELAY = 150
 
 # player settings
 PLAYER_MAXSPEED = 1 * GLOBAL_SCALE
@@ -69,8 +73,8 @@ DOOR_POSITIONS = {
 
 
 # list of tmx file numbers to pick from
-TILEMAP_FILES = [1, 2, 5, 8, 9, 10, 11, 12, 13]
-#TILEMAP_FILES = [0]
+TILEMAP_FILES = [1, 2, 5, 8, 9, 10, 11, 12, 13, 14]
+#TILEMAP_FILES = [14]
 
 TM_POOL = []
 def randomizeRooms():
@@ -89,7 +93,7 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 PINK = (255, 0, 255)
-TRANS = (255, 255, 255, 255)
+TRANS = (0, 0, 0, 0)
 
 NIGHT_COLOR = (10, 10, 10)
 
@@ -101,4 +105,8 @@ KEY_UP = pg.K_UP
 KEY_DOWN = pg.K_DOWN
 KEY_LEFT = pg.K_LEFT
 KEY_RIGHT = pg.K_RIGHT
+KEY_ENTER = pg.K_RETURN
+
+DEADZONE = 0.2
+
 

@@ -595,6 +595,8 @@ class Dungeon:
 
 
         try:
+            dungeon_img = pg.transform.scale(dungeon_img, (w // st.GLOBAL_SCALE, 
+                                                           h // st.GLOBAL_SCALE))
             pg.image.save(dungeon_img, 'dungeon_image.png')
             pass
         except Exception:

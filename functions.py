@@ -209,30 +209,11 @@ def img_list_from_strip(filename, width, height, startpos, number, scale=True,
         rect = ((i * width, 0), (width, height))
         if scale and size == st.TILESIZE:
             subimg = pg.transform.scale(img.subsurface(rect), 
-                                        (st.TILESIZE, st.TILESIZE))
+                    (width * st.GLOBAL_SCALE, height * st.GLOBAL_SCALE))
         elif scale and size != st.TILESIZE:
             subimg = pg.transform.scale(img.subsurface(rect), (size, size))
         else:
             subimg = img.subsurface(rect)
-        img_set.append(subimg)
-    return img_set
-
-
-def img_list_from_strip2(filename, width, height, startpos, number):
-    '''
-    make this the default?
-    '''
-    file = path.join(st.IMAGE_FOLDER, filename)
-    try:
-        img = pg.image.load(file).convert_alpha()
-    except Exception:
-        traceback.print_exc()
-        return
-    img_set = []
-    for i in range(startpos, (startpos + number)):
-        rect = ((i * width, 0), (width, height))
-        subimg = pg.transform.scale(img.subsurface(rect), 
-                    (width * st.GLOBAL_SCALE, height * st.GLOBAL_SCALE))
         img_set.append(subimg)
     return img_set
 
@@ -269,7 +250,6 @@ def tileImageScale(filename, size_w, size_h, scale=1,
             tileset.append(pg.transform.scale(
                     subimg, (int(st.TILESIZE_SMALL * scale * wh_ratio), 
                              int(st.TILESIZE_SMALL * scale))))
-    #print(filename, len(tileset))
     return tileset
 
 
@@ -355,36 +335,109 @@ def objects_from_tmx(filename):
                 pass
     
     return objects
+    
 
-
-def draw_text(surface, text, file, size, color, pos, align='nw'):
+def draw_text(surface, text, file, size, color, pos, align='topleft'):
     '''
     draws the text string at a given position with the given text file
-    might be too performance intensive
+    (might be too performance intensive?)
     '''
-    x = pos.x
-    y = pos.y
     font = pg.font.Font(file, size)
     font.set_bold(False)
     text_surface = font.render(text, False, color)
     text_rect = text_surface.get_rect()
-    if align == 'nw':
-       text_rect.topleft = (x, y)
-    elif align == 'ne':
-        text_rect.topright = (x, y)
-    elif align == 'sw':
-        text_rect.bottomleft = (x, y)
-    elif align == 'se':
-        text_rect.bottomright = (x, y)
-    elif align == 'n':
-        text_rect.midtop = (x, y)
-    elif align == 's':
-        text_rect.mitbottom = (x, y)
-    elif align == 'e':
-        text_rect.midright = (x, y)
-    elif align == 'w':
-        text_rect.midleft = (x, y)
-    elif align == 'center':
-        text_rect.center = (x, y)
+    setattr(text_rect, align, pos)
     surface.blit(text_surface, text_rect)
+
+
+def get_inputs(game):
+    '''
+    detects gamepad and keyboard inputs and stores them in a key map
+    '''
+    game.keys = {
+                'A': False,
+                'B': False,
+                'X': False,
+                'Y': False, 
+                'L': False,
+                'BACK': False,
+                'START': False,
+                'STICK_L_PRESSED': False,
+                'STICK_R_PRESSED': False,
+                'STICK_R': vec(0, 0),
+                'STICK_L': vec(0, 0),
+                'DPAD': vec(0, 0),
+                'DPAD_MENU': vec(0, 0)
+                }
     
+    key = game.keys
+    
+    # detect gamepad
+    gamepads = [pg.joystick.Joystick(x) for x in range(
+                 pg.joystick.get_count())]
+    
+    if len(gamepads) > 0:
+        gamepads[0].init()
+        buttons = gamepads[0].get_numbuttons()
+        dpads = gamepads[0].get_numhats()
+    
+        # get gamepad button inputs
+        for i in range(buttons):
+            if gamepads[0].get_button(i):
+                now = pg.time.get_ticks()
+                # apply key repeat delay
+                if now - game.timer > st.KEY_DELAY:
+                    game.timer = now
+                    if i == 0:
+                        key['A'] = True
+                    elif i == 1:
+                        key['B'] = True
+                    elif i == 2:
+                        key['X'] = True
+                    elif i == 3:
+                        key['Y'] = True
+                    elif i == 4:
+                        key['L'] = True
+                    elif i == 5:
+                        key['R'] = True
+                    elif i == 6:
+                        key['BACK'] = True
+                    elif i == 7:
+                        key['START'] = True
+                    elif i == 8:
+                        key['STICK_L_PRESSED'] = True
+                    elif i == 9:
+                        key['STICK_R_PRESSED'] = True
+        
+        # get dpad values
+        for i in range(dpads):
+            key['DPAD'].x, key['DPAD'].y = gamepads[0].get_hat(i)
+            key['DPAD'].y *= -1
+            
+            now = pg.time.get_ticks()
+            if now - game.timer > st.KEY_DELAY:
+                game.timer = now
+                key['DPAD_MENU'] = vec(key['DPAD'])
+
+    # get keyboard keys 
+    get_keys = pg.key.get_pressed()
+    
+    key['DPAD'].x = ((get_keys[st.KEY_RIGHT] or key['DPAD'].x == 1)
+                            - (get_keys[st.KEY_LEFT] or key['DPAD'].x == -1))
+    key['DPAD'].y = ((get_keys[st.KEY_DOWN] or key['DPAD'].y == 1)
+                            - (get_keys[st.KEY_UP] or key['DPAD'].y == -1))
+    
+    key['DPAD_MENU'].x = ((game.key_down == st.KEY_RIGHT 
+                                 or key['DPAD_MENU'].x == 1)
+                                - (game.key_down == st.KEY_LEFT
+                                 or key['DPAD_MENU'].x == -1))
+    key['DPAD_MENU'].y = ((game.key_down == st.KEY_DOWN
+                                 or key['DPAD_MENU'].y == 1) 
+                                - (game.key_down == st.KEY_UP
+                                 or key['DPAD_MENU'].y == -1))
+    
+    key['A'] = game.key_down == st.KEY_A or key['A']
+    key['B'] = game.key_down == st.KEY_B or key['B']
+    key['X'] = game.key_down == st.KEY_ENTER or key['X']
+    
+    key['START'] = game.key_down == st.KEY_MENU or key['START']
