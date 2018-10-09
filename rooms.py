@@ -47,17 +47,9 @@ class Room:
     def build(self):       
         for key in self.game.imageLoader.room_image_dict:
             if fn.compare(self.doors, key):
-                self.image = self.game.imageLoader.room_image_dict[key]
-        
+                self.image = self.game.imageLoader.room_image_dict[key]        
         self.tileRoom()
     
-        # for testing
-        if self.type == 'start':
-            #self.layout.append({'id': 0, 'name': 'sign', 'x': 15 * st.TILESIZE_SMALL, 
-                               # 'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
-                               # 'text': 'instructions'})
-            pass
-               
     
     def tileRoom(self):
         # positions of the doors
@@ -142,28 +134,20 @@ class Room:
         # close doors with wall objects:
         if 'N' not in self.doors:
             self.layout.append({'id': 0, 'name': 'wall', 
-                                'x': 120 * st.GLOBAL_SCALE - 8, 
-                                'y': 16 * st.GLOBAL_SCALE,  
-                                'width': 16 * st.GLOBAL_SCALE + 16, 
-                                'height': 16 * st.GLOBAL_SCALE})
+                                'x': 112, 'y': 16,  
+                                'width': 16 + 16, 'height': 16})
         if 'S' not in self.doors:
             self.layout.append({'id': 0, 'name': 'wall', 
-                                'x': 120 * st.GLOBAL_SCALE - 8, 
-                                'y': 160 * st.GLOBAL_SCALE,  
-                                'width': 16 * st.GLOBAL_SCALE + 16, 
-                                'height': 16 * st.GLOBAL_SCALE})
+                                'x': 112, 'y': 160,  
+                                'width': 16 + 16, 'height': 16})
         if 'W' not in self.doors:
             self.layout.append({'id': 0, 'name': 'wall', 
-                                'x': 16 * st.GLOBAL_SCALE, 
-                                'y': 88 * st.GLOBAL_SCALE - 8,  
-                                'width': 16 * st.GLOBAL_SCALE, 
-                                'height': 16 * st.GLOBAL_SCALE + 16})   
+                                'x': 16, 'y': 80,  
+                                'width': 16, 'height': 32})   
         if 'E' not in self.doors:
             self.layout.append({'id': 0, 'name': 'wall', 
-                                'x': 224 * st.GLOBAL_SCALE, 
-                                'y': 88 * st.GLOBAL_SCALE - 8,  
-                                'width': 16 * st.GLOBAL_SCALE, 
-                                'height': 16 * st.GLOBAL_SCALE + 16})
+                                'x': 224, 'y': 80,  
+                                'width': 16, 'height': 32})
 
     
     def shutDoors(self):
@@ -271,11 +255,6 @@ class Dungeon:
         dt = datetime.now() - start
         ms = dt.seconds * 1000 + dt.microseconds / 1000.0
         print('Dungeon built in {} ms'.format(round(ms, 1)))
-        
-        # TESTING
-        '''
-        self.rooms[5][5].locked_doors = ['N', 'S', 'W', 'E']
-        self.lockDoors(self.rooms[5][5], 'smallkey')'''
         
         
     def findEnd(self):
@@ -498,8 +477,10 @@ class Dungeon:
         for room in self.room_list:
             if room.dist == dist_longest and room.type != 'endboss':
                 room.type = 'miniboss'
-                room.layout.append({'id': 0, 'name': 'chest', 'x': 15 * st.TILESIZE_SMALL, 
-                                'y': 11 * st.TILESIZE_SMALL, 'width': 48, 'height': 48, 
+                room.layout.append({'id': 0, 'name': 'chest', 
+                                    'x': 15 * st.TILESIZE_SMALL, 
+                                'y': 11 * st.TILESIZE_SMALL, 
+                                'width': 16, 'height': 16, 
                                 'loot': 'smallkey', 'loot_amount': 1})
                 print('key in', room.pos)
                 break
@@ -545,7 +526,7 @@ class Dungeon:
                 self.current_frame = (self.current_frame + 1) % len(player_imgs)
         self.map_img.blit(player_imgs[self.current_frame], pos2)
         
-        scaled = (w * st.GLOBAL_SCALE, h * st.GLOBAL_SCALE)
+        scaled = (w, h)
         return pg.transform.scale(self.map_img, scaled)
         
     
@@ -575,7 +556,6 @@ class Dungeon:
         for room in self.room_list:
             pos_x = room.pos[1] * st.TILES_W * st.TILESIZE 
             pos_y = room.pos[0] * st.TILES_H * st.TILESIZE
-            #print(pos_x, pos_y)
             room_img = fn.tileRoom(self.game, 
                           self.game.imageLoader.tileset_dict[self.tileset],
                           room.pos)
@@ -591,12 +571,8 @@ class Dungeon:
                 
             dungeon_img.blit(room_img, (pos_x, pos_y))
                     
-                
-
-
         try:
-            dungeon_img = pg.transform.scale(dungeon_img, (w // st.GLOBAL_SCALE, 
-                                                           h // st.GLOBAL_SCALE))
+            dungeon_img = pg.transform.scale(dungeon_img, (w, h))
             pg.image.save(dungeon_img, 'dungeon_image.png')
             pass
         except Exception:

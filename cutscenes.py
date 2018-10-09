@@ -20,9 +20,8 @@ class Textbox(pg.sprite.Sprite):
         self.groups = game.dialogs
         pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-
-        #self.size = (180 * st.GLOBAL_SCALE, 86 * st.GLOBAL_SCALE)
-        self.size = (180 * st.GLOBAL_SCALE, 64 * st.GLOBAL_SCALE)
+        
+        self.size = (180, 64)
         self.pos = vec(pos)
         # set position based on players position
         if self.game.player.pos.y > (st.HEIGHT - st.GUI_HEIGHT) / 2 + st.GUI_HEIGHT:
@@ -45,7 +44,7 @@ class Textbox(pg.sprite.Sprite):
         self.timer = 0
         self.popup_time = 30
         
-        self.margin = vec(4, 4) * st.GLOBAL_SCALE
+        self.margin = vec(4, 4)
         self.spacing = 0.8 * st.TILESIZE
         
         self.arrow = Arrow(self.game, self.rect.midbottom, 'S')

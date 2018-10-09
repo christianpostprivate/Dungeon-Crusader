@@ -5,15 +5,17 @@ from random import choice
 vec = pg.math.Vector2
 
 # window settings and constants
-GLOBAL_SCALE = 3
-TILESIZE = int(16 * GLOBAL_SCALE)
-TILESIZE_SMALL = int(8 * GLOBAL_SCALE)
+SCREEN_SCALE = 3
+TILESIZE = 16
+TILESIZE_SMALL = 8
 TILES_W = 16
 TILES_H = 12
-GUI_MARGIN = min(1, int(0.5 * GLOBAL_SCALE))
+GUI_MARGIN = 1
 GUI_HEIGHT = TILESIZE * 3
 WIDTH = 2 * TILESIZE_SMALL * TILES_W
 HEIGHT = 2 * TILESIZE_SMALL * TILES_H + GUI_HEIGHT
+S_WIDTH = WIDTH * SCREEN_SCALE
+S_HEIGHT = HEIGHT * SCREEN_SCALE
 
 # file paths
 directory = path.dirname(__file__)
@@ -27,8 +29,8 @@ SOUND_FOLDER = path.join(directory, 'sounds')
  
 # ingame settings
 DUNGEON_SIZE = (10, 10)
-SCROLLSPEED = int(4 * GLOBAL_SCALE) # TOO FAST FOR SMALL SCALES!
-SCROLLSPEED_MENU = 6 * GLOBAL_SCALE
+SCROLLSPEED = 4 # TOO FAST FOR SMALL SCALES!
+SCROLLSPEED_MENU = 6
 FPS = 60
 FONT = path.join(FONT_FOLDER, 'slkscr.TTF')
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
@@ -40,9 +42,9 @@ MU_VOL = 0.3
 KEY_DELAY = 150
 
 # player settings
-PLAYER_MAXSPEED = 1 * GLOBAL_SCALE
-PLAYER_ACC = 0.4 * GLOBAL_SCALE
-PLAYER_FRICTION = 0.1 * GLOBAL_SCALE
+PLAYER_MAXSPEED = 1
+PLAYER_ACC = 0.4
+PLAYER_FRICTION = 0.1
 PLAYER_HIT_RECT = pg.Rect(0, 0, int(TILESIZE * 0.8), int(TILESIZE * 0.6))
 
 # player hp 
@@ -73,8 +75,8 @@ DOOR_POSITIONS = {
 
 
 # list of tmx file numbers to pick from
-TILEMAP_FILES = [1, 2, 5, 8, 9, 10, 11, 12, 13, 14]
-#TILEMAP_FILES = [14]
+TILEMAP_FILES = [1, 2, 5, 8, 9, 10, 11, 12, 13, 14, 15]
+#TILEMAP_FILES = [15]
 
 TM_POOL = []
 def randomizeRooms():
