@@ -1,9 +1,7 @@
 TO DO:
 - schwert animation
 - start/game over screen
-- Sprite factory mit **kwargs 
 - key logic
-- enemy stats, drop rates etc in eigene Datei
 - key binding function
 - Items: Lamp (place a fire sprite that damages enemies & light torches)
 - wall rects größer machen, damit gegner nicht aus dem Raum clippen.
@@ -11,18 +9,16 @@ TO DO:
 - Fledermäuse nur in dunklen Räumen, wachen auf wenn Licht entzündet wird
 - Weapon cooldown so anpassen, dass er erst beginnt, nachdem die Animation vorbei ist
   Am Ende der animation trigger
-- bewegende platformen
-- vector movement verbessern (player.apply_force())
+(- vector movement verbessern (player.apply_force()) )
 - Händler
 - Start / Game Over screen
 - pushing animation
 
 
+
 Bekannte Bugs:
-- Rects für Türen und manche Objekte (Schild) skalieren nicht mit GLOBAL SCALE
 - Gegner clippen durch walls
 - gegner fallen nicht in Löcher
-
 
 
 ** done **
@@ -51,3 +47,7 @@ Bekannte Bugs:
 - Gegner Sterbe animationen
 - Herzen/Magie füllen sich nicht auf einmal, sondern in einer kurzen Animation
 - förderbänder
+- wirklich alle blit funktionen in das Draw event packen
+- Sprite factory mit **kwargs 
+- enemy stats, drop rates etc in eigene Datei
+- bewegende platformen

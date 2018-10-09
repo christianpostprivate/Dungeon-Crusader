@@ -1,8 +1,5 @@
 import pygame as pg
 import traceback
-#from os import path
-#from random import seed, random
-from random import choice, shuffle
 
 import settings as st
 import sprites as spr
@@ -43,7 +40,8 @@ class Game:
         
         #self.font_name = pg.font.match_font(st.FONT_NAME)
 
-        self.screen = pg.display.set_mode((st.WIDTH, st.HEIGHT))
+        self.actual_screen = pg.display.set_mode((st.S_WIDTH, st.S_HEIGHT))
+        self.screen = pg.Surface((st.WIDTH, st.HEIGHT), flags=pg.SRCALPHA)
 
         self.clock = pg.time.Clock()
         self.running = True
@@ -101,13 +99,16 @@ class Game:
     
     def show_start_screen(self):
         # game splash/start screen
+        self.screen = pg.Surface((st.WIDTH, st.HEIGHT))      
         self.screen.blit(self.imageLoader.start_screen, (0, 0))
-        pg.display.flip()
+        self.screen = pg.transform.scale(self.screen,(st.S_WIDTH, st.S_HEIGHT))        
+        self.actual_screen.blit(self.screen, (0, 0))
+        pg.display.update()
         self.wait_for_key()
         
     
     def wait_for_key(self):
-        pg.time.wait(1000)
+        pg.time.wait(500)
         pg.event.wait()
         waiting = True
         while waiting:
@@ -150,7 +151,10 @@ class Game:
         self.player.itemA = s
         self.inventory.addItem(spr.Hookshot(self, self.player))
         self.inventory.addItem(spr.Staff(self, self.player))
-        self.inventory.addItem(spr.Bow(self, self.player))
+        bow = spr.Bow(self, self.player)
+        self.inventory.addItem(bow)
+        self.player.itemB = bow
+        
         b = spr.Bottle(self, self.player)
         b.fill('red potion')
         self.inventory.addItemSlot(b, (0, 4))
@@ -216,7 +220,7 @@ class Game:
         
         #spr.MovingPlatform(self, (st.TILESIZE * 5, st.TILESIZE * 6), (16, 16),
                      #RIGHT, 0.7)
-        '''
+
         #spr.Slime(self, (st.TILESIZE * 6, st.TILESIZE * 10), (48, 48))
         spr.Merchant(self, (st.TILESIZE * 8, st.TILESIZE * 7))
         items = list(self.imageLoader.shop_items.keys())
@@ -225,6 +229,8 @@ class Game:
         spr.ItemShop(self, (st.TILESIZE_SMALL * 15, st.TILESIZE * 8), items.pop())
         spr.ItemShop(self, (st.TILESIZE_SMALL * 20, st.TILESIZE * 8), items.pop())
 
+        '''
+
         self.run()
 
 
@@ -232,10 +238,14 @@ class Game:
         # game loop
         self.playing = True
         while self.playing:
+            #reset game screen
+            self.screen = pg.Surface((st.WIDTH, st.HEIGHT))
+            
             if self.slowmotion:
-                self.clock.tick(5)
+                self.clock.tick(2)
             else:
-                self.clock.tick(st.FPS)
+                #self.clock.tick(st.FPS)
+                self.dt = self.clock.tick(st.FPS) / 1000
             self.events()
             fn.get_inputs(self)            
             self.update()
@@ -292,7 +302,6 @@ class Game:
         if self.debug:
             #self.caption = self.player.lampState
             self.caption = (str(round(self.clock.get_fps(), 2)))
-            #self.caption = 'DEBUG MODE'
             
         else:
             self.caption = st.TITLE
@@ -327,7 +336,9 @@ class Game:
             self.inventory.update()
             
         elif self.state == 'TRANSITION':
-            self.RoomTransition(self.new_pos, self.direction)
+            #self.RoomTransition(self.new_pos, self.direction)
+            # ^this went into draw()
+            pass
             
         elif self.state == 'CUTSCENE':
             self.dialogs.update()
@@ -340,7 +351,7 @@ class Game:
             self.dungeon.SaveToPNG()
             
 
-    def draw(self):
+    def draw(self):        
         if self.state != 'TRANSITION':
             # draw the background (tilemap)
             self.screen.blit(self.background, (0, st.GUI_HEIGHT))
@@ -354,9 +365,12 @@ class Game:
             for sprite in self.all_sprites:
                 if hasattr(sprite, 'draw_after'):
                     sprite.draw_after()
+        
+        else:
+            self.RoomTransition(self.new_pos, self.direction)
             
             
-            # ----- DEBUG STUFF ----- #
+        # ----- DEBUG STUFF ----- #
         # draw hitboxes in debug mode
         if self.debug:
             for sprite in self.all_sprites:
@@ -373,11 +387,13 @@ class Game:
         
         # draw Fog
         #if self.state != 'MENU':
-            #self.drawFog()
+         #   self.drawFog()
 
         # draw the inventory
         self.drawGUI()
 
+        self.screen = pg.transform.scale(self.screen,(st.S_WIDTH, st.S_HEIGHT))        
+        self.actual_screen.blit(self.screen, (0, 0))
         pg.display.update()
         
     
@@ -455,6 +471,11 @@ class Game:
         if not self.in_transition:
             # store the old background image temporarily
             self.old_background = self.background
+            
+            # blit the background and sprites to prevent flickering
+            self.screen.blit(self.old_background, (0, st.GUI_HEIGHT))
+            self.all_sprites.draw(self.screen)  
+            
             # build the new room
             self.background = fn.tileRoom(self,
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
@@ -508,7 +529,7 @@ class Game:
                 self.screen.blit(self.old_background, self.bg_pos2)
                 self.screen.blit(self.background, self.bg_pos1)    
                 self.all_sprites.draw(self.screen)             
-                self.drawGUI()
+                #self.drawGUI()
             else:
                 # update the player's position
                 self.player.pos = vec(new_pos)
@@ -519,6 +540,10 @@ class Game:
                 self.in_transition = False
                 self.state = 'GAME'
                 
+                # blit the background and sprites to prevent flickering
+                self.screen.blit(self.background, (0, st.GUI_HEIGHT))    
+                self.all_sprites.draw(self.screen) 
+
         
 if __name__ == '__main__':
     g = Game()
@@ -528,6 +553,5 @@ if __name__ == '__main__':
             g.new()
     except Exception:
         traceback.print_exc()
-        pg.quit()
     
     pg.quit()

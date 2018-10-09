@@ -9,6 +9,7 @@ import sprites as spr
 vec = pg.math.Vector2
 
 
+
 def sign(number):
     if number >= 0:
         return 1
@@ -184,7 +185,7 @@ def transitRoom(game, dungeon, offset=vec(0, 0)):
             dungeon.room_index[1]]
     
 
-def loadImage(filename, scale=st.GLOBAL_SCALE):
+def loadImage(filename, scale=1):
     file = path.join(st.IMAGE_FOLDER, filename)
     try:
         img = pg.image.load(file).convert_alpha()
@@ -196,7 +197,7 @@ def loadImage(filename, scale=st.GLOBAL_SCALE):
         return
 
 
-def img_list_from_strip(filename, width, height, startpos, number, scale=True, 
+def img_list_from_strip(filename, width, height, startpos, number, 
                         size=st.TILESIZE):
     file = path.join(st.IMAGE_FOLDER, filename)
     try:
@@ -207,10 +208,7 @@ def img_list_from_strip(filename, width, height, startpos, number, scale=True,
     img_set = []
     for i in range(startpos, (startpos + number)):
         rect = ((i * width, 0), (width, height))
-        if scale and size == st.TILESIZE:
-            subimg = pg.transform.scale(img.subsurface(rect), 
-                    (width * st.GLOBAL_SCALE, height * st.GLOBAL_SCALE))
-        elif scale and size != st.TILESIZE:
+        if size != st.TILESIZE:
             subimg = pg.transform.scale(img.subsurface(rect), (size, size))
         else:
             subimg = img.subsurface(rect)
@@ -225,8 +223,7 @@ def getSubimg(image, width, height, topleft, size=(st.TILESIZE, st.TILESIZE)):
     return subimg
     
 
-def tileImageScale(filename, size_w, size_h, scale=1, 
-                   alpha=False):
+def tileImage(filename, size_w, size_h, alpha=False):
     file = path.join(st.IMAGE_FOLDER, filename)
     try:
         img = pg.image.load(file).convert()
@@ -248,8 +245,7 @@ def tileImageScale(filename, size_w, size_h, scale=1,
             rect = (size_w * j, size_h * i, size_w, size_h)
             subimg = img.subsurface(rect)
             tileset.append(pg.transform.scale(
-                    subimg, (int(st.TILESIZE_SMALL * scale * wh_ratio), 
-                             int(st.TILESIZE_SMALL * scale))))
+                subimg, (int(st.TILESIZE_SMALL* wh_ratio), st.TILESIZE_SMALL)))
     return tileset
 
 
@@ -325,17 +321,26 @@ def objects_from_tmx(filename):
     tree = ET.parse(file)
     root = tree.getroot()
     
-    # get object data as a list of dictionaries
-    objects = [obj.attrib for obj in root.iter('object')]
-    for o in objects:
-        for key, value in o.items():
+    raw_objects = root.iter('object')
+    objects = []
+
+    for obj in raw_objects:
+        a = {}
+        for key, value in obj.attrib.items():
             try:
-                o[key] = int(value) * st.GLOBAL_SCALE
+                a[key] = float(value)
             except ValueError:
-                pass
+                a[key] = value
+        child = obj.iter()
+        for node in child:
+            na = node.attrib
+            if na.get('name') and na.get('name') not in a.keys():
+                if na.get('value') is not None:
+                    a[na['name']] = float(na.get('value'))
+        objects.append(a)
     
     return objects
-    
+
 
 def draw_text(surface, text, file, size, color, pos, align='topleft'):
     '''
