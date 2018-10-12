@@ -22,12 +22,12 @@ class Game:
         pg.mixer.pre_init(44100, -16, 2, 2048)
         pg.mixer.init()
         pg.init()
-        
+
         pg.joystick.init()
 
         pg.key.set_repeat(10, st.KEY_DELAY)
         pg.mouse.set_visible(False)
-        
+
         # detect gamepad
         pg.joystick.init()
         self.gamepads = [pg.joystick.Joystick(x) for x in range(
@@ -37,11 +37,12 @@ class Game:
             buttons = self.gamepads[0].get_numbuttons()
             print(buttons)
             # fn.testGamepad(self.gamepad[0])
-        
+
         #self.font_name = pg.font.match_font(st.FONT_NAME)
 
         self.actual_screen = pg.display.set_mode((st.S_WIDTH, st.S_HEIGHT))
-        self.screen = pg.Surface((st.WIDTH, st.HEIGHT), flags=pg.SRCALPHA)
+        #self.screen = pg.Surface((st.WIDTH, st.HEIGHT), flags=pg.SRCALPHA)
+        self.screen = pg.Surface((st.WIDTH, st.HEIGHT))
 
         self.clock = pg.time.Clock()
         self.running = True
@@ -63,7 +64,7 @@ class Game:
         self.saveGame.load()
 
         self.loadAssets()
-        
+
         self.timer = 0
 
 
@@ -77,7 +78,7 @@ class Game:
         except Exception:
             traceback.print_exc()
             self.running = False
-        
+
 
     def loadSavefile(self):
         self.player.loadSelf()
@@ -95,18 +96,18 @@ class Game:
 
         print('GAME SAVED')
         pg.display.set_caption(self.caption)
-        
-    
+
+
     def show_start_screen(self):
         # game splash/start screen
-        self.screen = pg.Surface((st.WIDTH, st.HEIGHT))      
+        self.screen = pg.Surface((st.WIDTH, st.HEIGHT))
         self.screen.blit(self.imageLoader.start_screen, (0, 0))
-        self.screen = pg.transform.scale(self.screen,(st.S_WIDTH, st.S_HEIGHT))        
+        self.screen = pg.transform.scale(self.screen,(st.S_WIDTH, st.S_HEIGHT))
         self.actual_screen.blit(self.screen, (0, 0))
         pg.display.update()
         self.wait_for_key()
-        
-    
+
+
     def wait_for_key(self):
         pg.time.wait(500)
         pg.event.wait()
@@ -139,12 +140,12 @@ class Game:
             self.dungeon.tileset = self.saveGame.data['tileset']
         else:
             self.dungeon.create(rng_seed=None)
-            
+
         self.inventory = spr.Inventory(self)
 
         # spawn the player in the middle of the room
         self.player = spr.Player(self, (st.WIDTH // 2, st.TILESIZE * 12))
-        
+
         # ADD SOME ITEMS FOR TESTING -------------------------
         s = spr.Sword(self, self.player)
         self.inventory.addItem(s)
@@ -154,7 +155,7 @@ class Game:
         bow = spr.Bow(self, self.player)
         self.inventory.addItem(bow)
         self.player.itemB = bow
-        
+
         b = spr.Bottle(self, self.player)
         b.fill('red potion')
         self.inventory.addItemSlot(b, (0, 4))
@@ -165,7 +166,7 @@ class Game:
         b.fill('blue potion')
         self.inventory.addItemSlot(b, (2, 4))
         self.inventory.addItem(spr.Lamp(self, self.player))
-        
+
 
         # load settings
         if self.loaded:
@@ -179,49 +180,19 @@ class Game:
         self.background = fn.tileRoom(self,
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
                           self.dungeon.room_index)
-        
+
         # testing a dark transparent overlay
         #self.dim_screen = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT)).convert_alpha()
         #self.dim_screen.fill((0, 0, 0, 180))
-        
+
         # Night effect
         self.fog = pg.Surface((st.WIDTH, st.HEIGHT - st.GUI_HEIGHT))
         self.fog.fill(st.NIGHT_COLOR)
         self.light_mask = self.imageLoader.light_mask_img
         size = (self.light_mask.get_width() * 5, self.light_mask.get_height() * 5)
         self.light_mask_big = pg.transform.scale(self.imageLoader.light_mask_img,
-                             size)        
+                             size)
         '''
-        spr.Block_push(self, (st.TILESIZE * 5, st.TILESIZE * 8), 
-                               (st.TILESIZE, st.TILESIZE))
-        
-        spr.Switch(self, (st.TILESIZE * 6, st.TILESIZE * 10), 
-                                (st.TILESIZE, st.TILESIZE))
-        b = spr.Chest(self, (st.TILESIZE * 6, st.TILESIZE * 10), (48, 48), 
-                      #loot='rupee', loot_amount=100)
-        b.hp = 100
-        speed = 0.7
-        for i in range(3, 13):
-            if i != 12:
-                spr.Conveyor(self, (st.TILESIZE * i, st.TILESIZE * 11), (16, 16),
-                     RIGHT, speed)
-            if i != 3:
-                spr.Conveyor(self, (st.TILESIZE * i, st.TILESIZE * 6), (16, 16),
-                     LEFT, speed)
-        for i in range(6, 11):
-            if i != 11:
-                spr.Conveyor(self, (st.TILESIZE * 3, st.TILESIZE * i), (16, 16),
-                     DOWN, speed)
-            if i != 5:
-                spr.Conveyor(self, (st.TILESIZE * 12, st.TILESIZE * (i + 1)), (16, 16),
-                     UP, speed)
-        #spr.MovingPlatform(self, (st.TILESIZE * 3, st.TILESIZE * 6), (16, 16),
-                    # DOWN, 0.5)
-        
-        #spr.MovingPlatform(self, (st.TILESIZE * 5, st.TILESIZE * 6), (16, 16),
-                     #RIGHT, 0.7)
-
-        #spr.Slime(self, (st.TILESIZE * 6, st.TILESIZE * 10), (48, 48))
         spr.Merchant(self, (st.TILESIZE * 8, st.TILESIZE * 7))
         items = list(self.imageLoader.shop_items.keys())
         shuffle(items)
@@ -229,7 +200,13 @@ class Game:
         spr.ItemShop(self, (st.TILESIZE_SMALL * 15, st.TILESIZE * 8), items.pop())
         spr.ItemShop(self, (st.TILESIZE_SMALL * 20, st.TILESIZE * 8), items.pop())
 
+        spr.Chest(self, (st.TILESIZE * 6, st.TILESIZE * 10), (16, 16),
+                      loot='small key', loot_amount=10)
+        spr.Sign(self, (st.TILESIZE * 10, st.TILESIZE * 8), (16, 16),
+                 text='instructions')
         '''
+        #spr.Animation(self, (st.TILESIZE * 6, st.TILESIZE * 8), 
+         #             self.imageLoader.effects['magic_explosion'], 60)
 
         self.run()
 
@@ -240,14 +217,14 @@ class Game:
         while self.playing:
             #reset game screen
             self.screen = pg.Surface((st.WIDTH, st.HEIGHT))
-            
+
             if self.slowmotion:
                 self.clock.tick(2)
             else:
                 #self.clock.tick(st.FPS)
                 self.dt = self.clock.tick(st.FPS) / 1000
             self.events()
-            fn.get_inputs(self)            
+            fn.get_inputs(self)
             self.update()
             self.draw()
 
@@ -289,10 +266,10 @@ class Game:
 
                 if event.key == pg.K_F4:
                     self.slowmotion = not self.slowmotion
-                
+
                 if event.key == pg.K_F1:
                     self.show_player_stats = not self.show_player_stats
-                    
+
                 if event.key == pg.K_p:
                     self.soundLoader.snd_heart.play()
                     print('test')
@@ -302,7 +279,7 @@ class Game:
         if self.debug:
             #self.caption = self.player.lampState
             self.caption = (str(round(self.clock.get_fps(), 2)))
-            
+
         else:
             self.caption = st.TITLE
         pg.display.set_caption(self.caption)
@@ -316,7 +293,7 @@ class Game:
 
         if self.state == 'GAME':
             self.all_sprites.update()
-                    
+
             self.dialogs.update()
             self.inventory.update()
             # check for room transitions on screen exit (every frame)
@@ -327,31 +304,31 @@ class Game:
                 self.prev_room = self.dungeon.room_index
                 self.dungeon.room_index = self.new_room
                 self.state = 'TRANSITION'
-                
+
             # When in a fight, shut the doors:
             if not self.dungeon.room_current.cleared:
                 cs.checkFight(self)
-                
+
         elif self.state == 'MENU' or self.state == 'MENU_TRANSITION':
             self.inventory.update()
-            
+
         elif self.state == 'TRANSITION':
             #self.RoomTransition(self.new_pos, self.direction)
             # ^this went into draw()
             pass
-            
+
         elif self.state == 'CUTSCENE':
             self.dialogs.update()
             self.walls.update()
-        
+
         # DEBUG STUFF
         if self.key_down == pg.K_F12:
             self.caption = 'SAVING DUNGEON IMAGE'
             pg.display.set_caption(self.caption)
             self.dungeon.SaveToPNG()
-            
 
-    def draw(self):        
+
+    def draw(self):
         if self.state != 'TRANSITION':
             # draw the background (tilemap)
             self.screen.blit(self.background, (0, st.GUI_HEIGHT))
@@ -361,15 +338,15 @@ class Game:
                     sprite.draw_before()
             # draw the sprites
             self.all_sprites.draw(self.screen)
-            
+
             for sprite in self.all_sprites:
                 if hasattr(sprite, 'draw_after'):
                     sprite.draw_after()
-        
+
         else:
             self.RoomTransition(self.new_pos, self.direction)
-            
-            
+
+
         # ----- DEBUG STUFF ----- #
         # draw hitboxes in debug mode
         if self.debug:
@@ -377,14 +354,14 @@ class Game:
                 if hasattr(sprite, 'hit_rect'):
                     pg.draw.rect(self.screen, st.CYAN, sprite.hit_rect, 1)
                 if hasattr(sprite, 'interact_rect'):
-                    pg.draw.rect(self.screen, st.GREEN, 
+                    pg.draw.rect(self.screen, st.GREEN,
                                  sprite.interact_rect, 1)
-                if self.draw_vectors:    
+                if self.draw_vectors:
                     if hasattr(sprite, 'aggro_dist'):
-                        pg.draw.circle(self.screen, st.RED, 
-                                    (int(sprite.pos.x), int(sprite.pos.y)), 
+                        pg.draw.circle(self.screen, st.RED,
+                                    (int(sprite.pos.x), int(sprite.pos.y)),
                                     sprite.aggro_dist, 1)
-        
+
         # draw Fog
         #if self.state != 'MENU':
          #   self.drawFog()
@@ -392,11 +369,11 @@ class Game:
         # draw the inventory
         self.drawGUI()
 
-        self.screen = pg.transform.scale(self.screen,(st.S_WIDTH, st.S_HEIGHT))        
+        self.screen = pg.transform.scale(self.screen,(st.S_WIDTH, st.S_HEIGHT))
         self.actual_screen.blit(self.screen, (0, 0))
         pg.display.update()
-        
-    
+
+
     def drawFog(self):
         self.fog.fill(st.NIGHT_COLOR)
         if self.player.lampState == 'ON':
@@ -410,35 +387,35 @@ class Game:
             self.light_rect.centerx = self.player.rect.centerx
             self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
             self.fog.blit(self.light_mask, self.light_rect)
-            
+
         elif self.player.lampState == 'ON_TRANSITION':
             self.light_mask_copy = self.imageLoader.light_mask_img.copy()
-            size = int((self.player.attack_update / st.LAMP_SWITCH_TIME) 
+            size = int((self.player.attack_update / st.LAMP_SWITCH_TIME)
                     * self.light_mask_big.get_rect().width)
             size = max(self.light_mask.get_rect().width, size)
-            self.light_mask_copy = pg.transform.scale(self.light_mask_copy, 
+            self.light_mask_copy = pg.transform.scale(self.light_mask_copy,
                                                       (size, size))
             self.light_rect = self.light_mask_copy.get_rect()
             self.light_rect.centerx = self.player.rect.centerx
             self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
             self.fog.blit(self.light_mask_copy, self.light_rect)
-        
+
         elif self.player.lampState == 'OFF_TRANSITION':
             self.light_mask_copy = self.imageLoader.light_mask_img.copy()
-            size = int((1 - self.player.attack_update / st.LAMP_SWITCH_TIME) 
+            size = int((1 - self.player.attack_update / st.LAMP_SWITCH_TIME)
                     * self.light_mask_big.get_rect().width)
             size = max(self.light_mask.get_rect().width, size)
-            self.light_mask_copy = pg.transform.scale(self.light_mask_copy, 
+            self.light_mask_copy = pg.transform.scale(self.light_mask_copy,
                                                       (size, size))
             self.light_rect = self.light_mask_copy.get_rect()
             self.light_rect.centerx = self.player.rect.centerx
             self.light_rect.centery = self.player.rect.centery - st.GUI_HEIGHT
             self.fog.blit(self.light_mask_copy, self.light_rect)
-            
+
         self.screen.blit(self.fog, (0, st.GUI_HEIGHT), special_flags=pg.BLEND_MULT)
 
         if self.show_player_stats:
-            strings = [str(self.player.state), 
+            strings = [str(self.player.state),
                        ('(' + str(int(self.player.pos.x)) + ', '
                           + str(int(self.player.pos.y)) + ')'),
                        'Room: ' + str(self.dungeon.room_current.pos),
@@ -446,36 +423,36 @@ class Game:
             for i in range(len(strings)):
                 # show debug infos
                 pos = vec(16, st.GUI_HEIGHT + 16 + (i * 24 + 8))
-                text_surface = self.debug_font.render(strings[i], 
+                text_surface = self.debug_font.render(strings[i],
                                         False, st.WHITE)
                 text_rect = text_surface.get_rect()
                 text_rect.topleft = pos
                 self.screen.blit(text_surface, text_rect)
-            
+
 
     def drawGUI(self):
         # Interface (Items, HUD, map, textboxes etc)
         for dialog in self.dialogs:
             dialog.draw()
-        
+
         self.inventory.map_img = self.dungeon.blitRooms()
-        self.inventory.draw() 
+        self.inventory.draw()
 
 
     def RoomTransition(self, new_pos, direction):
         '''
         this method creates the illusion of the player transitioning from one
-        room to the next by sliding both room backgrounds in the respective 
+        room to the next by sliding both room backgrounds in the respective
         direction
         '''
         if not self.in_transition:
             # store the old background image temporarily
             self.old_background = self.background
-            
+
             # blit the background and sprites to prevent flickering
             self.screen.blit(self.old_background, (0, st.GUI_HEIGHT))
-            self.all_sprites.draw(self.screen)  
-            
+            self.all_sprites.draw(self.screen)
+
             # build the new room
             self.background = fn.tileRoom(self,
                           self.imageLoader.tileset_dict[self.dungeon.tileset],
@@ -483,33 +460,33 @@ class Game:
             # scroll the new and old background
             # start positions for the new bg are based on the direction the
             # player is moving
-            
+
             start_positions = {
                               UP: vec(0, - (st.HEIGHT - st.GUI_HEIGHT * 2)),
                               DOWN: vec(0, st.HEIGHT),
                               LEFT: vec(- st.WIDTH, st.GUI_HEIGHT),
                               RIGHT: vec(st.WIDTH, st.GUI_HEIGHT)
                               }
-    
+
             self.bg_pos1 = start_positions[direction]
             # pos2 is the old bg's position that gets pushed out of the screen
             self.bg_pos2 = vec(0, st.GUI_HEIGHT)
             self.in_transition = True
-        
+
             fn.transitRoom(self, self.dungeon, self.bg_pos1)
-            
-        else:    
+
+        else:
             if self.bg_pos1 != (0, st.GUI_HEIGHT):
                 # moves the 2 room backrounds until the new background is at (0,0)
                 # PROBLEM: Only works with certain scroll speeds!
-                
+
                 # calculate the move vector based on the direction
                 move = (vec(0, 0) - direction) * st.SCROLLSPEED
-                
+
                 # move the background surfaces
                 self.bg_pos1 += move
                 self.bg_pos2 += move
-                        
+
                 if direction == UP:
                     self.bg_pos1.y = min(st.GUI_HEIGHT, self.bg_pos1.y)
                 elif direction == DOWN:
@@ -518,17 +495,17 @@ class Game:
                     self.bg_pos1.x = min(0, self.bg_pos1.x)
                 elif direction == RIGHT:
                     self.bg_pos1.x = max(0, self.bg_pos1.x)
-                
+
                 # move the sprites during transition
                 # MEMO: get the target position of the sprite somehow
                 for sprite in self.all_sprites:
-                    sprite.rect.topleft += move                                     
+                    sprite.rect.topleft += move
                     sprite.hit_rect.topleft += move
                     sprite.pos += move
-    
+
                 self.screen.blit(self.old_background, self.bg_pos2)
-                self.screen.blit(self.background, self.bg_pos1)    
-                self.all_sprites.draw(self.screen)             
+                self.screen.blit(self.background, self.bg_pos1)
+                self.all_sprites.draw(self.screen)
                 #self.drawGUI()
             else:
                 # update the player's position
@@ -539,12 +516,12 @@ class Game:
                 # end transtition
                 self.in_transition = False
                 self.state = 'GAME'
-                
-                # blit the background and sprites to prevent flickering
-                self.screen.blit(self.background, (0, st.GUI_HEIGHT))    
-                self.all_sprites.draw(self.screen) 
 
-        
+                # blit the background and sprites to prevent flickering
+                self.screen.blit(self.background, (0, st.GUI_HEIGHT))
+                self.all_sprites.draw(self.screen)
+
+
 if __name__ == '__main__':
     g = Game()
     try:
@@ -553,5 +530,5 @@ if __name__ == '__main__':
             g.new()
     except Exception:
         traceback.print_exc()
-    
+
     pg.quit()

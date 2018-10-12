@@ -208,7 +208,7 @@ class ImageLoader:
                 'red potion': self.bottle_img['red potion'].copy(),
                 'green potion': self.bottle_img['green potion'].copy(),
                 'blue potion': self.bottle_img['blue potion'].copy(),
-                'smallkey': self.item_img['key'].copy()
+                'small key': self.item_img['key'].copy()
                 }
         
         self.item_anims = {
@@ -220,7 +220,9 @@ class ImageLoader:
                                     0, 7, size=st.TILESIZE_SMALL)
         
         self.effects = {
-                'blink1': fn.img_list_from_strip('blink1.png', 16, 16, 0, 4)
+                'blink1': fn.img_list_from_strip('blink1.png', 16, 16, 0, 4),
+                'magic_explosion': fn.img_list_from_strip(
+                                    'magic_explosion.png', 32, 32, 0, 8)
                 }
         
         self.gui_img = {
@@ -232,7 +234,7 @@ class ImageLoader:
                                                0, 6),
             'magic_items': fn.loadImage('magic_and_items.png'),
             'magicbar': fn.loadImage('magicbar.png'),
-            'arrows': fn.img_list_from_strip('arrows.png', 8, 8, 0, 4, 
+            'arrows': fn.img_list_from_strip('arrows.png', 8, 8, 0, 5, 
                                              size=st.TILESIZE_SMALL)
             }
         
@@ -337,11 +339,24 @@ class Player(pg.sprite.Sprite):
         
         self.item_counts = {
                 'rupee': 0,
-                'smallkey': 0
+                'small key': 0,
+                'arrows': 10
                 }
 
         # testing a save function
         self.saveGame = self.game.saveGame
+        
+        # SHADOW
+        self.shadow_surf = pg.Surface((12, 6), pg.SRCALPHA)
+        self.shadow_rect = self.shadow_surf.get_rect()
+        pg.draw.ellipse(self.shadow_surf, (0, 0, 0), self.shadow_rect)
+        
+        alpha_surf = pg.Surface(self.shadow_surf.get_size(), pg.SRCALPHA)
+        alpha_surf.fill((255, 255, 255, 120))
+        
+        self.shadow_surf.blit(alpha_surf, (0, 0), 
+                              special_flags=pg.BLEND_RGBA_MULT)
+        
 
 
     def saveSelf(self):
@@ -493,12 +508,12 @@ class Player(pg.sprite.Sprite):
                 self.hp += 0.25
                 self.mana += 0.5
                 self.item_counts['rupee'] += 1
-                self.item_counts['smallkey'] += 1
+                self.item_counts['small key'] += 1
             elif self.game.key_down == pg.K_PAGEDOWN:
                 self.hp -= 0.25
                 self.mana -= 0.5
                 self.item_counts['rupee'] -= 1
-                self.item_counts['smallkey'] -= 1
+                self.item_counts['small key'] -= 1
 
 
     def update(self):
@@ -550,8 +565,8 @@ class Player(pg.sprite.Sprite):
         self.hp = max(0, min(self.hp, self.max_hp))
         self.mana = max(0, min(self.mana, self.max_mana))
         self.item_counts['rupee'] = max(0, min(self.item_counts['rupee'], 999))
-        self.item_counts['smallkey'] = max(0, 
-                        min(self.item_counts['smallkey'], 99))
+        self.item_counts['small key'] = max(0, 
+                        min(self.item_counts['small key'], 99))
         
         # player animations
         self.animate()
@@ -665,13 +680,12 @@ class Player(pg.sprite.Sprite):
             
 
     def draw_before(self):
+
         # draw a shadow
-        shadow_rect = self.rect.inflate(-4, -8)
-        shadow_surf = pg.Surface((shadow_rect.w, shadow_rect.h))
-        shadow_rect.bottom = self.rect.bottom + 2
-        pg.draw.ellipse(shadow_surf, (0, 0, 0), shadow_rect)
-        shadow_surf.set_alpha(180)
-        self.game.screen.blit(shadow_surf, shadow_rect.topleft)
+        self.shadow_rect.centerx = self.rect.centerx
+        self.shadow_rect.bottom = self.rect.bottom + 1
+        
+        self.game.screen.blit(self.shadow_surf, self.shadow_rect)
         
 
 
@@ -775,6 +789,11 @@ class Sign(Solid):
         super().__init__(game, pos, size)
         self.image = self.game.imageLoader.solid_img['sign']
         self.reading = False
+        
+        try:
+            self.text = cs.text_dict[kwargs['text']]
+        except:
+            pass
     
     
     def on_create(self):
@@ -803,9 +822,15 @@ class Chest(Solid):
         try:
             self.loot = kwargs['loot']
             self.loot_amount = kwargs['loot_amount']
+            if self.loot_amount <= 1:
+                self.text = cs.text_dict['chest_opened'].format(
+                        self.loot_amount, self.loot)
+            else:
+                self.text = cs.text_dict['chest_opened'].format(
+                        self.loot_amount, self.loot + "s")
         except:
             pass
-        # TO DO: Text fitting the item (explaining etc)
+        # TO DO: Image showing the item
         
         self.image = self.game.imageLoader.solid_img['chest'][0]
         self.size = self.image.get_size()
@@ -814,7 +839,13 @@ class Chest(Solid):
         
     
     def on_create(self):
-        self.text = cs.text_dict['chest_opened'].format(self.loot)
+        if self.loot_amount <= 1:
+            self.text = cs.text_dict['chest_opened'].format(
+                    self.loot_amount, self.loot)
+        else:
+            self.text = cs.text_dict['chest_opened'].format(
+                    self.loot_amount, self.loot + "s")
+        
     
      
     def update(self):
@@ -881,7 +912,7 @@ class Keydoor(Solid):
         if (self.interact_rect.colliderect(player.rect) and 
             player.dir == self.dir_dict[self.direction]):
                     
-            if player.item_counts['smallkey'] == 0:
+            if player.item_counts['small key'] == 0:
                 # if player doesn't have a key
                 if (self.game.keys['X'] and 
                     len(self.game.dialogs) == 0):
@@ -895,7 +926,7 @@ class Keydoor(Solid):
             else:
                 # if player has at least one key
                 if self.game.keys['X']:
-                    player.item_counts['smallkey'] -= 1
+                    player.item_counts['small key'] -= 1
                     
                     # remove self from room data
                     index = self.game.dungeon.room_index
@@ -1220,7 +1251,7 @@ class Inventory(pg.sprite.Sprite):
         self.image.blit(self.health_string, (25, st.HEIGHT - 42))
         
         # draw magic bar and item slots
-        # MEMO: might want to make multiple images 
+        # MEMO: might want to make multiple images !!!!
         
         #draw mana bar
         bar_stretched = self.magic_bar.copy()
@@ -1232,8 +1263,8 @@ class Inventory(pg.sprite.Sprite):
         self.image.blit(bar_stretched, (82, st.HEIGHT - 31 + one_minus_factor))
         
         self.image.blit(self.magic_image, (77, st.HEIGHT - 48))
-        
-        # draw item amounts
+       
+        # draw other item amounts
         # rupees
         font = self.game.imageLoader.font
         font_size = 8
@@ -1245,7 +1276,7 @@ class Inventory(pg.sprite.Sprite):
         
         # keys
         text_pos = vec(x_off, 217)
-        number = 'x %02d' % self.game.player.item_counts['smallkey']
+        number = 'x %02d' % self.game.player.item_counts['small key']
         fn.draw_text(self.image, number,
                      font, font_size, st.WHITE, text_pos, align='midleft')
 
@@ -1355,19 +1386,36 @@ class Inventory(pg.sprite.Sprite):
         item = self.inv_items[self.inv_index[1]][self.inv_index[0]]
         if item:
             text = item.type
-            fn.draw_text(self.image, text,font, font_size, st.WHITE, 
+            fn.draw_text(self.image, text, font, font_size, st.WHITE, 
                          text_pos, align='center')
         
         # draw item in slots A and B
         if player.itemA:
             imageA = player.itemA.inv_image
-            posA = (111, 216)
+            posA = vec(111, 216)
             self.image.blit(imageA, posA)
+            
+            # draw item amounts in slot A
+            if player.itemA.type == 'bow':
+                text = str(player.item_counts['arrows'])
+                text_pos = posA + vec(12, 14)
+                fn.draw_text(self.image, text, font, font_size, st.WHITE, 
+                         text_pos, align='center')
 
         if player.itemB:
             imageB = player.itemB.inv_image      
-            posB = (135, 216)   
+            posB = vec(135, 216)   
             self.image.blit(imageB, posB)
+            
+            # draw item amounts in slot B
+            if player.itemB.type == 'bow':
+                text = str(player.item_counts['arrows'])
+                text_pos = posB + vec(12, 14)
+                fn.draw_text(self.image, text, font, font_size, st.WHITE, 
+                         text_pos, align='center')
+            
+            
+        
             
     
     def addItem(self, item):
@@ -1461,7 +1509,6 @@ class AttackItem(pg.sprite.Sprite):
         self.group = game.all_sprites
         self.layer = player.layer
         pg.sprite.Sprite.__init__(self)
-        #self.group.add(self, layer=self.layer)
         self.player = player
         self.game = game
         
@@ -1588,12 +1635,12 @@ class Staff(AttackItem):
         self.type = 'staff'
         super().__init__(game, player)
         self.fired = False
+        self.cooldown = 15
         
     
     def use(self):
         super().use()
-        if not self.fired:
-            if self.player.mana >= 1:
+        if not self.fired and self.player.mana >= 1:
                 self.lastdir = self.player.lastdir
                 Magicball(self.game, self, self.rect.center)
                 self.player.mana -= 1
@@ -1610,16 +1657,7 @@ class Bow(AttackItem):
         self.type = 'bow'
         super().__init__(game, player)
         self.fired = False
-        self.cooldown = 60
-
-
-    def update(self):
-        if not self.fired:
-            self.lastdir = self.player.lastdir
-            Arrow(self.game, self, self.rect.center)
-            self.fired = True
-        
-        super().update()
+        self.cooldown = 50
         
     
     def use(self):
@@ -1655,6 +1693,12 @@ class Bow(AttackItem):
         self.rect.topleft = self.pos
         self.hit_rect = self.rect
         self.hit_rect.center = self.rect.center
+        
+        if not self.fired and self.player.item_counts['arrows'] > 0:
+            self.lastdir = self.player.lastdir
+            Arrow(self.game, self, self.rect.center)
+            self.player.item_counts['arrows'] -= 1
+            self.fired = True
     
     
     def reset(self):
@@ -1827,6 +1871,8 @@ class Projectile(pg.sprite.Sprite):
         self.anim_update = 0
         self.current_frame = 0
         
+        self.state = 'SHOT'
+        
         # set own direction based on the direction the player sprite is facing
         self.dir = self.player.lastdir
         
@@ -1859,31 +1905,42 @@ class Projectile(pg.sprite.Sprite):
         
         
     def update(self):
-        self.acc = vec(self.dir) * self.speed
-        self.vel += self.acc
+        if self.state == 'SHOT':
+            hits_walls = pg.sprite.spritecollide(self, self.game.walls, 
+                                                 False, fn.collide_hit_rect)
+            if hits_walls:
+                self.state = 'HIT_WALL'
+                
+            hits_enemies = pg.sprite.spritecollide(self, self.game.enemies, 
+                                                   False, fn.collide_hit_rect)
+            if hits_enemies:
+                for enemy in hits_enemies:
+                    enemy.hp -= self.damage
+                    self.state = 'HIT_ENEMY'
+                    self.enemy = enemy
+    
+            self.acc = vec(self.dir) * self.speed
+            self.vel += self.acc
+            
+            # limit velocity
+            if self.vel.length_squared() > self.max_speed ** 2:
+                self.vel.scale_to_length(self.max_speed)
+                
+            self.pos += self.vel
         
-        # limit velocity
-        if self.vel.length_squared() > self.max_speed ** 2:
-            self.vel.scale_to_length(self.max_speed)
-        
-        self.pos += self.vel
+        else:
+            self.destroy()
         
         self.rect.center = self.pos
         self.hit_rect.center = self.rect.center
         
-        hits = pg.sprite.spritecollide(self, self.game.walls, False)
-        if hits:
-            self.kill()
-            
-        hits = pg.sprite.spritecollide(self, self.game.enemies, False)
-        if hits:
-            for hit in hits:
-                hit.hp -= self.damage
-                self.kill()      
         try:        
             self.animate()
         except:
+            # has no animation frames
             pass
+        
+        
                 
     
     def animate(self):
@@ -1893,21 +1950,42 @@ class Projectile(pg.sprite.Sprite):
             self.current_frame = (self.current_frame + 1) % len(
                                   self.image_frames)
             self.image = self.image_frames[self.current_frame]
+            
+    
+    def destroy(self):
+        self.vel *= 0
+        self.kill()
 
       
 
 class Magicball(Projectile):
     def __init__(self, game, player, pos, rotating=False):  
-        self.image_frames = game.imageLoader.projectiles[2:5]
+        self.image_frames = [img.copy() for img 
+                             in game.imageLoader.projectiles[2:5]]
         self.image = self.image_frames[0]
         super().__init__(game, player, pos, rotating)      
         
         self.speed = 2
         self.max_speed = 3
-        self.damage = 2
+        self.damage = 4
         self.anim_speed = 100
         
-   
+        self.effect = None
+        
+    
+    def destroy(self):
+        #super().destroy()
+        
+        if self.effect == None:
+            for img in self.image_frames:
+                img.fill(st.TRANS)
+            self.effect = Effect(self.game, vec(self.pos), 
+               self.game.imageLoader.effects['magic_explosion'], 50)
+            self.hit_rect = self.effect.image.get_rect()
+        
+        else:
+            if self.effect.end:
+                self.kill()
 
 class Arrow(Projectile):
     def __init__(self, game, player, pos, rotating=True):
@@ -1918,6 +1996,21 @@ class Arrow(Projectile):
         self.max_speed = 3
         self.damage = 1
         self.anim_speed = 100
+        
+        self.destroy_timer = 0
+        
+    
+    def destroy(self):
+        if self.state == 'HIT_WALL':
+            # push the arrow a bit into a wall
+            if self.vel.length_squared() > 0:
+                self.pos += self.vel.normalize() * 3
+            self.vel *= 0
+        elif self.state == 'HIT_ENEMY':
+            self.pos = self.enemy.pos
+        self.destroy_timer += 1
+        if self.destroy_timer > 50:           
+            self.kill()
           
     
 
@@ -2785,6 +2878,7 @@ class Effect(pg.sprite.Sprite):
         self.game = game
         self.pos = pos
         self.delay = delay
+        self.end = False
         
         
     def update(self):
@@ -2792,6 +2886,7 @@ class Effect(pg.sprite.Sprite):
         now = pg.time.get_ticks()      
         if self.frame == len(self.images):
             self.kill()
+            self.end = True
         if now - self.timer > self.delay:
             self.timer = now
             self.image = self.images[self.frame]
@@ -2800,7 +2895,7 @@ class Effect(pg.sprite.Sprite):
             
 
 class Animation(pg.sprite.Sprite):
-    # sprite that displays an array of images as an animation
+    # sprite that displays a list of images as an animation
     def __init__(self, game,  pos, images, speed):
         self.group = game.all_sprites
         pg.sprite.Sprite.__init__(self)
@@ -2813,15 +2908,14 @@ class Animation(pg.sprite.Sprite):
         self.images = images
         self.image = self.images[0]
         self.rect = self.image.get_rect()
-        self.game = game
         self.pos = pos
-        self.speed = speed
+        self.anim_speed = speed
         
         
     def update(self):
         self.rect.topleft = self.pos
         now = pg.time.get_ticks()     
-        if now - self.timer > self.speed:
+        if now - self.timer > self.anim_speed:
             self.timer = now
             self.current_frame = (self.current_frame + 1) % len(
                                       self.images)
@@ -2887,5 +2981,5 @@ item_prices = {
         'red potion': 100,
         'green potion': 50,
         'blue potion': 250,
-        'smallkey': 1000
+        'small key': 1000
         }
