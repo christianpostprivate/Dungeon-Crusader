@@ -215,6 +215,8 @@ def checkFight(game):
         if rect.colliderect(game.player.hit_rect):
             # player is far enough in the room to shut the doors
             room.shutDoors()
+            game.soundLoader.snd_shut.play()
+            
     else:
         # if room is shut, check for the number of enemies
         if len(game.enemies) == 0:
