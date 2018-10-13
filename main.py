@@ -34,8 +34,7 @@ class Game:
                      pg.joystick.get_count())]
         if self.gamepads:
             self.gamepads[0].init()
-            buttons = self.gamepads[0].get_numbuttons()
-            print(buttons)
+            #buttons = self.gamepads[0].get_numbuttons()
             # fn.testGamepad(self.gamepad[0])
 
         #self.font_name = pg.font.match_font(st.FONT_NAME)
@@ -154,6 +153,9 @@ class Game:
         self.inventory.addItem(spr.Staff(self, self.player))
         bow = spr.Bow(self, self.player)
         self.inventory.addItem(bow)
+        bombs = spr.Bombs(self, self.player)
+        self.inventory.addItem(bombs)
+        
         self.player.itemB = bow
 
         b = spr.Bottle(self, self.player)

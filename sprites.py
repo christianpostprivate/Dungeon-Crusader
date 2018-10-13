@@ -185,7 +185,7 @@ class ImageLoader:
                 }
         
         self.item_strip1 = fn.img_list_from_strip('item_strip2.png', 8, 8, 
-                                                 0, 4, size=st.TILESIZE_SMALL)
+                                                 0, 5, size=st.TILESIZE_SMALL)
         self.rupees = fn.img_list_from_strip('rupees.png', 8, 8, 
                                                  0, 5, size=st.TILESIZE_SMALL)
         self.hookshot_strip = fn.img_list_from_strip('hookshot2.png', 16, 16,
@@ -200,7 +200,9 @@ class ImageLoader:
             'rupee': self.item_strip1[1], 
             'key': self.item_strip1[2],
             'mana': self.item_strip1[3],
-            'arrow':  fn.loadImage('arrow.png')
+            'arrow':  fn.loadImage('arrow.png'),
+            'bombs': fn.loadImage('bomb.png'),
+            'bomb_drop': self.item_strip1[4]
             }
         
         self.shop_items = {
@@ -303,7 +305,7 @@ class Player(pg.sprite.Sprite):
 
         self.rect = self.image.get_rect()
         self.pos = vec(pos)
-        # spawning position in the room
+        # spawning position when player falls into a hole
         self.spawn_pos = vec(pos)
         self.rect.center = pos
         self.hit_rect = st.PLAYER_HIT_RECT
@@ -313,13 +315,11 @@ class Player(pg.sprite.Sprite):
         self.dir = vec(DOWN)
         self.lastdir = vec(DOWN)
         self.friction = vec(0, 0)
+        self.state = 'IDLE'
         
         self.lampState = 'OFF'
-
-
-        self.state = 'IDLE'
-        self.max_hp = st.PLAYER_HP_START
         self.hp = 3.0
+        self.max_hp = st.PLAYER_HP_START
         self.mana = 10
         self.max_mana = 10
         
@@ -340,7 +340,15 @@ class Player(pg.sprite.Sprite):
         self.item_counts = {
                 'rupee': 0,
                 'small key': 0,
-                'arrows': 10
+                'arrows': 20,
+                'bombs': 10
+                }
+        
+        self.item_max = {
+                'rupee': 999,
+                'small key': 99,
+                'arrows': 99,
+                'bombs': 99
                 }
 
         # testing a save function
@@ -507,13 +515,17 @@ class Player(pg.sprite.Sprite):
             if self.game.key_down == pg.K_PAGEUP:
                 self.hp += 0.25
                 self.mana += 0.5
-                self.item_counts['rupee'] += 1
-                self.item_counts['small key'] += 1
+                #self.item_counts['rupee'] += 1
+                #self.item_counts['small key'] += 1
+                for key, value in self.item_counts.items():
+                    self.item_counts[key] += 1
             elif self.game.key_down == pg.K_PAGEDOWN:
                 self.hp -= 0.25
                 self.mana -= 0.5
-                self.item_counts['rupee'] -= 1
-                self.item_counts['small key'] -= 1
+                #self.item_counts['rupee'] -= 1
+                #self.item_counts['small key'] -= 1
+                for key, value in self.item_counts.items():
+                    self.item_counts[key] -= 1
 
 
     def update(self):
@@ -564,9 +576,9 @@ class Player(pg.sprite.Sprite):
         # restrain items between 0 and max
         self.hp = max(0, min(self.hp, self.max_hp))
         self.mana = max(0, min(self.mana, self.max_mana))
-        self.item_counts['rupee'] = max(0, min(self.item_counts['rupee'], 999))
-        self.item_counts['small key'] = max(0, 
-                        min(self.item_counts['small key'], 99))
+        for key, value in self.item_counts.items():
+            self.item_counts[key] = max(0, min(self.item_counts[key], 
+                                               self.item_max[key]))
         
         # player animations
         self.animate()
@@ -1391,31 +1403,32 @@ class Inventory(pg.sprite.Sprite):
         
         # draw item in slots A and B
         if player.itemA:
-            imageA = player.itemA.inv_image
             posA = vec(111, 216)
-            self.image.blit(imageA, posA)
-            
-            # draw item amounts in slot A
-            if player.itemA.type == 'bow':
-                text = str(player.item_counts['arrows'])
-                text_pos = posA + vec(12, 14)
-                fn.draw_text(self.image, text, font, font_size, st.WHITE, 
-                         text_pos, align='center')
+            self.draw_item(player, player.itemA, posA, font, font_size)
 
-        if player.itemB:
-            imageB = player.itemB.inv_image      
+        if player.itemB:    
             posB = vec(135, 216)   
-            self.image.blit(imageB, posB)
-            
-            # draw item amounts in slot B
-            if player.itemB.type == 'bow':
-                text = str(player.item_counts['arrows'])
-                text_pos = posB + vec(12, 14)
-                fn.draw_text(self.image, text, font, font_size, st.WHITE, 
-                         text_pos, align='center')
-            
-            
+            self.draw_item(player, player.itemB, posB, font, font_size)
+
+    
+    def draw_item(self, player, slot, pos, font, font_size):
+        '''
+        helper function that draws items and item amounts in Slots A and B
+        '''
+        image = slot.inv_image   
+        self.image.blit(image, pos)
         
+        # draw item amounts
+        if slot.type == 'bow':
+            text = str(player.item_counts['arrows'])
+            text_pos = pos + vec(12, 14)
+            fn.draw_text(self.image, text, font, font_size, st.WHITE, 
+                     text_pos, align='center')
+        elif slot.type == 'bombs':
+            text = str(player.item_counts['bombs'])
+            text_pos = pos + vec(12, 14)
+            fn.draw_text(self.image, text, font, font_size, st.WHITE, 
+                     text_pos, align='center')
             
     
     def addItem(self, item):
@@ -1472,6 +1485,64 @@ class Bottle:
 
     def reset(self):
         pass
+    
+
+
+class Bombs:
+    '''
+    inventory item for Bombs
+    '''
+    def __init__(self, game, player):
+        self.player = player
+        self.game = game
+        self.type = 'bombs'
+        self.inv_image = self.game.imageLoader.item_img['bombs']
+        self.cooldown = 40
+        self.fired = False
+    
+    def use(self):
+        # drop a bomb
+        if self.player.item_counts[self.type] > 0 and not self.fired:
+            self.player.item_counts[self.type] -= 1
+            Bomb(self.game, self.player.pos)
+            self.fired = True
+
+
+    def reset(self):
+        self.fired = False
+    
+
+
+class Bomb(pg.sprite.Sprite):
+    '''
+    The Bomb that the player drops
+    '''
+    def __init__(self, game,  pos):
+        self.group = game.all_sprites
+        pg.sprite.Sprite.__init__(self)
+        self.layer = game.player.layer
+        self.group.add(self, layer=self.layer)
+        self.game = game
+
+        self.image = self.game.imageLoader.item_img['bombs']
+        self.rect = self.image.get_rect()
+        self.game = game
+        self.pos = vec(pos)
+        self.rect.center = self.pos
+        
+        
+        self.timer = 0
+        self.fuse_time = 4 * st.FPS
+        
+    
+    def update(self):
+        self.timer += 1
+        if self.timer < self.fuse_time:
+            # flash animation
+            pass
+        else:
+            # create Explosion sprite
+            self.kill()
     
 
 
@@ -1643,6 +1714,7 @@ class Staff(AttackItem):
         if not self.fired and self.player.mana >= 1:
                 self.lastdir = self.player.lastdir
                 Magicball(self.game, self, self.rect.center)
+                self.game.soundLoader.snd_magic1.play()
                 self.player.mana -= 1
                 self.fired = True
         
@@ -1979,9 +2051,14 @@ class Magicball(Projectile):
         if self.effect == None:
             for img in self.image_frames:
                 img.fill(st.TRANS)
-            self.effect = Effect(self.game, vec(self.pos), 
-               self.game.imageLoader.effects['magic_explosion'], 50)
-            self.hit_rect = self.effect.image.get_rect()
+            #self.effect = Effect(self.game, vec(self.pos), 
+               #self.game.imageLoader.effects['magic_explosion'], 50)
+            images = self.game.imageLoader.effects['magic_explosion']
+            self.effect = Explosion(self.game, vec(self.pos), images, 50, 
+                                    damage=3, 
+                                    sound=self.game.soundLoader.snd_magic2,
+                        hit_rect=pg.Rect(images[0].get_rect().inflate(-6, -6)))
+
         
         else:
             if self.effect.end:
@@ -2875,6 +2952,7 @@ class Effect(pg.sprite.Sprite):
         self.images = images
         self.image = self.images[0]
         self.rect = self.image.get_rect()
+        self.rect.center = pos
         self.game = game
         self.pos = pos
         self.delay = delay
@@ -2893,6 +2971,47 @@ class Effect(pg.sprite.Sprite):
             self.frame = self.frame + 1
             
             
+    
+class Explosion(Effect):
+    '''
+    Effect that also damages enemies or the player
+    '''
+    def __init__(self, game,  pos, images, delay, **kwargs):
+        super().__init__(game,  pos, images, delay)
+        self.damage = kwargs['damage']
+        if 'hit_rect' in kwargs:
+            # define custom hit rect
+            self.hit_rect = kwargs['hit_rect']
+        else:    
+            self.hit_rect = self.image.get_rect()
+        
+        self.hit_rect.center = self.rect.center
+        if 'sound' in kwargs:
+            kwargs['sound'].play()
+            
+            
+    def update(self):
+        self.rect.center = self.pos
+        now = pg.time.get_ticks()      
+        if self.frame == len(self.images):
+            self.kill()
+            self.end = True
+        if now - self.timer > self.delay:
+            self.timer = now
+            self.image = self.images[self.frame]
+            self.frame = self.frame + 1
+            
+        # collision with enemies
+        hits = pg.sprite.spritecollide(self, self.game.enemies, False, 
+                                       fn.collide_hit_rect)
+        if hits:
+            for enemy in hits:
+                if enemy.state != 'HITSTUN':
+                    enemy.hp -= self.damage
+                    enemy.knockback(self, 1, 0.1)
+        
+            
+
 
 class Animation(pg.sprite.Sprite):
     # sprite that displays a list of images as an animation
@@ -2972,6 +3091,7 @@ class GenericSprite(pg.sprite.Sprite):
         self.game = game
         self.pos = vec(pos)
         self.rect.topleft = self.pos
+        
             
 
 

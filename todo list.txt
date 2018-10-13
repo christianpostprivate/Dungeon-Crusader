@@ -9,11 +9,11 @@ TO DO:
 - Fledermäuse nur in dunklen Räumen, wachen auf wenn Licht entzündet wird
 - Weapon cooldown so anpassen, dass er erst beginnt, nachdem die Animation vorbei ist
   Am Ende der animation trigger
-(- vector movement verbessern (player.apply_force()) )
+- Animation und Weapon cooldown 2 timer
 - Händler
 - Start / Game Over screen
 - pushing animation
-
+- Items (bomben etc) haben Kollisionsabfrage und schieben sich gegenseitig weg
 
 
 Bekannte Bugs:
