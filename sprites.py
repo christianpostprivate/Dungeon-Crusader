@@ -224,7 +224,9 @@ class ImageLoader:
         self.effects = {
                 'blink1': fn.img_list_from_strip('blink1.png', 16, 16, 0, 4),
                 'magic_explosion': fn.img_list_from_strip(
-                                    'magic_explosion.png', 32, 32, 0, 8)
+                                    'magic_explosion.png', 32, 32, 0, 8),
+                'bomb_explosion': fn.img_list_from_strip(
+                                    'explosion.png', 32, 32, 0, 7)
                 }
         
         self.gui_img = {
@@ -355,15 +357,10 @@ class Player(pg.sprite.Sprite):
         self.saveGame = self.game.saveGame
         
         # SHADOW
-        self.shadow_surf = pg.Surface((12, 6), pg.SRCALPHA)
+        self.shadow_surf = pg.Surface((12, 6)).convert_alpha()
+        self.shadow_surf.fill(st.TRANS)
         self.shadow_rect = self.shadow_surf.get_rect()
-        pg.draw.ellipse(self.shadow_surf, (0, 0, 0), self.shadow_rect)
-        
-        alpha_surf = pg.Surface(self.shadow_surf.get_size(), pg.SRCALPHA)
-        alpha_surf.fill((255, 255, 255, 120))
-        
-        self.shadow_surf.blit(alpha_surf, (0, 0), 
-                              special_flags=pg.BLEND_RGBA_MULT)
+        pg.draw.ellipse(self.shadow_surf, (0, 0, 0, 180), self.shadow_rect)
         
 
 
@@ -695,7 +692,7 @@ class Player(pg.sprite.Sprite):
 
         # draw a shadow
         self.shadow_rect.centerx = self.rect.centerx
-        self.shadow_rect.bottom = self.rect.bottom + 1
+        self.shadow_rect.bottom = self.rect.bottom + 2
         
         self.game.screen.blit(self.shadow_surf, self.shadow_rect)
         
@@ -1504,7 +1501,7 @@ class Bombs:
         # drop a bomb
         if self.player.item_counts[self.type] > 0 and not self.fired:
             self.player.item_counts[self.type] -= 1
-            Bomb(self.game, self.player.pos)
+            Bomb(self.game, self.player.pos + self.player.dir * 12)
             self.fired = True
 
 
@@ -1526,9 +1523,11 @@ class Bomb(pg.sprite.Sprite):
 
         self.image = self.game.imageLoader.item_img['bombs']
         self.rect = self.image.get_rect()
+        self.hit_rect = self.rect
         self.game = game
         self.pos = vec(pos)
         self.rect.center = self.pos
+        self.hit_rect.center = self.pos
         
         
         self.timer = 0
@@ -1542,6 +1541,10 @@ class Bomb(pg.sprite.Sprite):
             pass
         else:
             # create Explosion sprite
+            images = self.game.imageLoader.effects['bomb_explosion']
+            Explosion(self.game, vec(self.pos), images, 80, damage=3, 
+                                    sound=self.game.soundLoader.snd['bomb'],
+                        hit_rect=pg.Rect(images[0].get_rect().inflate(-6, -6)))
             self.kill()
     
 
@@ -1691,7 +1694,7 @@ class Sword(AttackItem):
         
         if not self.fired:
             # play slash sound      
-            self.game.soundLoader.snd_slash.play()
+            self.game.soundLoader.snd['slash'].play()
             self.fired = True
             
     
@@ -1714,7 +1717,7 @@ class Staff(AttackItem):
         if not self.fired and self.player.mana >= 1:
                 self.lastdir = self.player.lastdir
                 Magicball(self.game, self, self.rect.center)
-                self.game.soundLoader.snd_magic1.play()
+                self.game.soundLoader.snd['magic1'].play()
                 self.player.mana -= 1
                 self.fired = True
         
@@ -2056,7 +2059,7 @@ class Magicball(Projectile):
             images = self.game.imageLoader.effects['magic_explosion']
             self.effect = Explosion(self.game, vec(self.pos), images, 50, 
                                     damage=3, 
-                                    sound=self.game.soundLoader.snd_magic2,
+                                    sound=self.game.soundLoader.snd['magic2'],
                         hit_rect=pg.Rect(images[0].get_rect().inflate(-6, -6)))
 
         
@@ -2152,7 +2155,7 @@ class Item:
             
         def collect(self):
             self.player.hp += 1
-            self.game.soundLoader.snd_heart.play()
+            self.game.soundLoader.snd['heart'].play()
             super().collect()
             
             
@@ -2183,7 +2186,7 @@ class Item:
             
         def collect(self):
             self.player.item_counts['rupee'] += self.value
-            self.game.soundLoader.snd_rupee.play()
+            self.game.soundLoader.snd['rupee'].play()
             super().collect()
             
     
