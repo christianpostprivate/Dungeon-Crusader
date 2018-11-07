@@ -200,11 +200,13 @@ def checkFight(game):
     closes the doors and opens them when player defeats all enemies
     '''
     room = game.dungeon.room_current
-    # if no enemies are in that room, mark this room as cleared and return
-    if len(game.enemies) == 0:
-        room.openDoors()
-        room.cleared = True
-        return
+    if len(game.enemies) > 0:
+        room.cleared = False
+    else:
+        if not room.shut:
+            room.cleared = True
+            return
+        
     # check if the room's doors are closed
     if room.shut == False:
         # check player's position
@@ -215,11 +217,13 @@ def checkFight(game):
         if rect.colliderect(game.player.hit_rect):
             # player is far enough in the room to shut the doors
             room.shutDoors()
-            game.soundLoader.snd_shut.play()
+            game.soundLoader.snd['shut'].play()
             
     else:
+        # THIS IS NEVER EXECUTED....
         # if room is shut, check for the number of enemies
         if len(game.enemies) == 0:
             # if all enemies are defeated, open the doors
             room.openDoors()
+            game.soundLoader.snd['fanfare1'].play()
             room.cleared = True

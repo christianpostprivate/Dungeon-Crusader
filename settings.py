@@ -36,8 +36,8 @@ FONT = path.join(FONT_FOLDER, 'slkscr.TTF')
 TITLE = ('DUNGEON CRUSADER | move: ARROW or WASD | attack: SPACE | ' +
         'inventory: ESC | save: F6 | load: F9 | debug mode: H')
 
-SFX_VOL = 0.3
-MU_VOL = 0.3
+SFX_VOL = 0.2
+MU_VOL = 0.5
 
 KEY_DELAY = 150
 

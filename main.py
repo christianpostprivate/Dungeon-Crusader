@@ -105,6 +105,7 @@ class Game:
         self.actual_screen.blit(self.screen, (0, 0))
         pg.display.update()
         self.wait_for_key()
+        self.soundLoader.music['dungeon1'].play(loops=-1)
 
 
     def wait_for_key(self):
