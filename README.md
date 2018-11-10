@@ -1,5 +1,5 @@
 # Dungeon-Crusader
-Start main.py to play
+Start run.bat to play (run.py not working currently)
 
 Required modules: pygame (https://www.pygame.org/wiki/GettingStarted)
 
