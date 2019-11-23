@@ -1,5 +1,8 @@
 # Dungeon-Crusader
-Start run.bat to play (run.py not working currently)
+Start modules/main.py to play
+
+This repo is not maintained any more. The project is getting refactored and is moved to:
+https://github.com/MattR0se/DungeonCrusaderV03
 
 Required modules: pygame (https://www.pygame.org/wiki/GettingStarted)
 
