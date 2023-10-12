@@ -6,6 +6,8 @@ from random import choice, choices
 import sys
 import json
 
+import pygame.sprite
+
 import functions as fn
 import settings as st
 import cutscenes as cs
@@ -704,6 +706,7 @@ class Solid(pg.sprite.Sprite):
     Container Class for all solid objects
     '''
     def __init__(self, game, pos, size):
+        pygame.sprite.Sprite.__init__(self)
         self.game = game
         self.pos = vec(pos)
         self.size = size
@@ -952,10 +955,10 @@ class Hole(pg.sprite.Sprite):
     A hole that the player can fall into (and spawn at the entrance)
     '''
     def __init__(self, game, pos, size, **kwargs):
+        pg.sprite.Sprite.__init__(self)
         self.game = game
         self.group = self.game.all_sprites
         self.layer = 1
-        pg.sprite.Sprite.__init__(self)
 
         self.group.add(self, layer=self.layer)
             
@@ -1154,8 +1157,9 @@ class Moving_platform(pg.sprite.Sprite):
 
 class Inventory(pg.sprite.Sprite):
     def __init__(self, game):
+#        pg.sprite.Sprite.__init__(self, self.groups)
+        pg.sprite.Sprite.__init__(self)
         self.groups = game.gui
-        pg.sprite.Sprite.__init__(self, self.groups)
         self.game = game
 
         # if in menu then True, otherwise False
@@ -1388,7 +1392,7 @@ class Inventory(pg.sprite.Sprite):
                 
                 if item:
                     self.image.blit(item.inv_image, pos)
-                                  
+
         # draw Item name
         font = self.game.imageLoader.font
         font_size = 8
@@ -1581,9 +1585,9 @@ class Lamp:
              
 class AttackItem(pg.sprite.Sprite):
     def __init__(self, game, player):
+        pg.sprite.Sprite.__init__(self)
         self.group = game.all_sprites
         self.layer = player.layer
-        pg.sprite.Sprite.__init__(self)
         self.player = player
         self.game = game
         
@@ -1636,6 +1640,7 @@ class AttackItem(pg.sprite.Sprite):
 
 class Sword(AttackItem):
     def __init__(self, game, player):
+        pygame.sprite.Sprite.__init__(self)
         self.type = 'sword'
         super().__init__(game, player)
         self.cooldown = 15
@@ -1784,6 +1789,7 @@ class Bow(AttackItem):
 
 class Hookshot(AttackItem):
     def __init__(self, game, player):
+        pygame.sprite.Sprite.__init__(self)
         self.type = 'hookshot'
         super().__init__(game, player)
         self.spr_chain = self.game.imageLoader.hookshot_strip[1]
@@ -1934,9 +1940,9 @@ class Projectile(pg.sprite.Sprite):
     TO DO: change player to any emitter to enable enemy shooting
     '''
     def __init__(self, game, player, pos, rotating):
+        pg.sprite.Sprite.__init__(self)
         self.group = game.all_sprites
         self.layer = player.layer
-        pg.sprite.Sprite.__init__(self)
         self.group.add(self, layer=self.layer)
         self.player = player
         self.game = game
@@ -2070,7 +2076,8 @@ class Magicball(Projectile):
 
 class Arrow(Projectile):
     def __init__(self, game, player, pos, rotating=True):
-        self.image = game.imageLoader.item_img['arrow']           
+        pg.sprite.Sprite.__init__(self)
+        self.image = game.imageLoader.item_img['arrow']
         super().__init__(game, player, pos, rotating)
         
         self.speed = 1
@@ -2108,13 +2115,13 @@ class Item:
             
     class ItemDrop(pg.sprite.Sprite):
         def __init__(self, game, pos):
-            self.game = game                    
+            pg.sprite.Sprite.__init__(self)
+            self.game = game
             self.player = self.game.player
             self.pos = vec(pos)
             self.groups = self.game.all_sprites, self.game.item_drops
             self.layer = self.game.player.layer - 1
-            pg.sprite.Sprite.__init__(self)
-            
+
             for g in self.groups:
                 g.add(self, layer=self.layer)
             
@@ -2271,12 +2278,12 @@ class Enemy(pg.sprite.Sprite):
     Container class for all basic enemies
     '''
     def __init__(self, game, pos):
+        pg.sprite.Sprite.__init__(self)
         self.game = game
         self.pos = vec(pos)
         self.groups = self.game.all_sprites, self.game.enemies
         self.layer = self.game.player.layer + 1
-        pg.sprite.Sprite.__init__(self)
-        
+
         for g in self.groups:
             g.add(self, layer=self.layer)
 
