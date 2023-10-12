@@ -31,6 +31,7 @@ Requires python 3.x
 | F6 | quicksave (might crash the game!)|
 | F9| quickload |
 | H | debug mode |
+
 ### Controls in debug mode:
 | key | action|
 |-----|-------|
